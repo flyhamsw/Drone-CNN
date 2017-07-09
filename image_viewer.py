@@ -15,12 +15,13 @@ for i in range(0, num_data):
     dataset_name = ngii_dir[i][0]
     print('Current Dataset: %s (num_data %d)' % (dataset_name, i))
 
-    f, axarr = plt.subplots(5)
+    f, axarr = plt.subplots(2, 10)
 
-    x_batch, y_batch,_,_ = data.make_batch(dataset_name, 5, 'ohe')
+    x_batch, y_batch_image, y_batch_ohe = data.make_batch(dataset_name, 10)
 
-    for j in range(0, 5):
-        axarr[j].imshow(x_batch[j])
-        axarr[j].set_title(label_coder(y_batch[j]))
+    for j in range(0, 10):
+        axarr[0, j].imshow(x_batch[j])
+        axarr[1, j].imshow(y_batch_image[j]*255)
+        axarr[1, j].set_title(label_coder(y_batch_ohe[j]))
 
     plt.show()

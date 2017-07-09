@@ -70,9 +70,8 @@ def get_ohe(y_batch_fnames):
 
 	return ohe_list
 
-def make_batch(name, batch_size, mode):
+def make_batch(name, batch_size):
 	patch_dir = get_patch_dir(name)
-
 
 	x_batch_fnames = []
 	y_batch_fnames = []
@@ -82,17 +81,17 @@ def make_batch(name, batch_size, mode):
 		y_batch_fnames.append(patch_dir[i][1])
 
 	x_batch = []
-	if mode=='ohe':
-		y_batch = get_ohe(y_batch_fnames)
-	elif mode=='image':
-		y_batch = []
-		for fname in y_batch_fnames:
-			y_batch.append(cv2.imread(fname))
 
 	for fname in x_batch_fnames:
 		x_batch.append(cv2.imread(fname))
 
-	return x_batch, y_batch, x_batch_fnames, y_batch_fnames
+	y_batch_ohe = get_ohe(y_batch_fnames)
+
+	y_batch_image = []
+	for fname in y_batch_fnames:
+		y_batch_image.append(cv2.imread(fname))
+
+	return x_batch, y_batch_image, y_batch_ohe
 
 def insert_patch(name, x_data, y_data, y_label):
 	conn, cur = get_db_connection()
