@@ -10,7 +10,7 @@ x_image = tf.placeholder('float', shape=[None, patch_size, patch_size, 3])
 y_ = tf.placeholder('float', shape=[None, 3])
 
 def weight_variable(shape, seed):
-	initial = tf.truncated_normal(shape, stddev=1, seed=seed)
+	initial = tf.truncated_normal(shape, stddev=0.1, seed=seed)
 	return tf.Variable(initial)
 
 def bias_variable(shape):

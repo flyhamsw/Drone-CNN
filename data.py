@@ -24,8 +24,8 @@ def insert_ngii_dataset():
 	cur.execute('delete from patch_dir;')
 
 	for name in dataset_names:
-		ngii_x_dir = '%s/%s/x.png' % (ngii_dataset_dir, name)
-		ngii_y_dir = '%s/%s/y.png'%(ngii_dataset_dir, name)
+		ngii_x_dir = '%s/%s/x_50.png' % (ngii_dataset_dir, name)
+		ngii_y_dir = '%s/%s/y_25.png' % (ngii_dataset_dir, name)
 		cur.execute("insert into ngii_dir values ('%s', '%s', '%s');" % (name, ngii_x_dir, ngii_y_dir))
 
 	conn.commit()

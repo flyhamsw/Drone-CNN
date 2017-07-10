@@ -10,10 +10,10 @@ training_patches_dir = 'training_patches'
 x_patch_size = 64
 y_patch_size = 32
 
-x_patch_stride = 10
-y_patch_stride = 10
+x_patch_stride = 64
+y_patch_stride = 32
 
-y_patch_ctr = 15
+y_patch_ctr = 7
 
 for row in ngii_dir:
 	name = row[0]

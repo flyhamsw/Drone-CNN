@@ -10,7 +10,7 @@ x_image = tf.placeholder('float', shape=[None, input_patch_size, input_patch_siz
 y_ = tf.placeholder('float', shape=[None, output_patch_size, output_patch_size, 3])
 
 def weight_variable(shape, seed):
-	initial = tf.truncated_normal(shape, stddev=1, seed=seed)
+	initial = tf.truncated_normal(shape, stddev=0.001, seed=seed)
 	return tf.Variable(initial)
 
 def bias_variable(shape):
@@ -59,16 +59,16 @@ b_fc2 = bias_variable([output_patch_size*output_patch_size*3])
 h_fc2 = tf.matmul(h_fc1, W_fc2) + b_fc2
 h_fc2_drop = tf.nn.dropout(h_fc2, keep_prob)
 
-'''
-threshold = tf.constant(0.8, shape=[output_patch_size*output_patch_size*3])
-h_fc2_threshold = tf.maximum(tf.zeros(tf.shape(h_fc2_drop)), tf.add(h_fc2_drop, -threshold)) * 5
-'''
 
 y_conv = tf.reshape(h_fc2_drop, [-1, output_patch_size, output_patch_size, 3])
+
+threshold = tf.constant(0.8, shape=[output_patch_size*output_patch_size*3])
+y_conv_threshold = tf.reshape(tf.maximum(tf.zeros(tf.shape(threshold)), tf.add(h_fc2_drop, -threshold)) * 5, [-1, output_patch_size, output_patch_size, 3])
 
 tf.summary.image('input x_image', x_image)
 tf.summary.image('input y_', y_)
 tf.summary.image('predicted y_conv', y_conv)
+tf.summary.image('thresholded y_conv', y_conv_threshold)
 
 cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv))
 #cross_entropy = -tf.reduce_sum(y_*tf.log(y_conv))
@@ -77,8 +77,8 @@ tf.summary.scalar('cross_entropy', cross_entropy)
 lr = tf.placeholder(tf.float32)
 m = tf.placeholder(tf.float32)
 #train_step = tf.train.AdamOptimizer(lr).minimize(cross_entropy)
-train_step = tf.train.RMSPropOptimizer(lr).minimize(cross_entropy)
-#train_step = tf.train.MomentumOptimizer(learning_rate=lr, momentum=m).minimize(cross_entropy)
+#train_step = tf.train.RMSPropOptimizer(lr).minimize(cross_entropy)
+train_step = tf.train.MomentumOptimizer(learning_rate=lr, momentum=m).minimize(cross_entropy)
 
 sess = tf.Session()
 
@@ -95,19 +95,19 @@ train_writer = tf.summary.FileWriter('/home/lsmjn/tensorOrtho_TY/tb', sess.graph
 ngii_dir = data.get_ngii_dir()
 
 num_data = len(data.get_ngii_dir())
-lr_value = 0.15 / 0.1
+lr_value = 0.1 / 0.1
 m_value = 0.9
-steps = 3
+steps = 2
 
 k = 0
 
-for epoch in range(0, 10000000000):
+for epoch in range(0, 10000000000000000000000000000000000000):
 	for i in range(num_data):
 		dataset_name = ngii_dir[i][0]
 		print('Current Dataset: %s (num_data %d)' % (dataset_name, i))
 
 		for j in range(0, steps):
-			x_batch, y_batch,_,_ = data.make_batch(dataset_name, 100, 'image')
+			x_batch, y_batch,_ = data.make_batch(dataset_name, 8)
 
 			print('step %d, acc step %d, epoch %d' % (j, k, epoch))
 
@@ -115,8 +115,8 @@ for epoch in range(0, 10000000000):
 				train_xe = sess.run(cross_entropy, feed_dict={x_image:x_batch, y_:y_batch, keep_prob:1.0})
 				print('Train XE: %f' % train_xe)
 				f_log.write('%d,%f\n' % (k, train_xe))
-			if k%500 == 0:
-				lr_value = lr_value * 0.01
+			if k%1000 == 0:
+				lr_value = lr_value * 0.1
 				print('Learning rate:')
 				print(lr_value)
 
