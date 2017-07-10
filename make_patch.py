@@ -8,12 +8,12 @@ ngii_dir = data.get_ngii_dir()
 training_patches_dir = 'training_patches'
 
 x_patch_size = 64
-y_patch_size = 32
+y_patch_size = 64
 
 x_patch_stride = 64
-y_patch_stride = 32
+y_patch_stride = 64
 
-y_patch_ctr = 7
+y_patch_ctr = 31
 
 for row in ngii_dir:
 	name = row[0]
@@ -69,8 +69,9 @@ for row in ngii_dir:
 					cv2.imwrite(yname0, y_patch_0)
 					y_data.append(yname0)
 
-					one_hot_element = y_patch_0[y_patch_ctr][y_patch_ctr]
 
+					#Determine one hot encoding by center pixel
+					one_hot_element = y_patch_0[y_patch_ctr][y_patch_ctr]
 					if one_hot_element[0] == 1:
 						one_hot_enc = 'otherwise'
 					elif one_hot_element[1] == 1:
@@ -80,6 +81,22 @@ for row in ngii_dir:
 					else:
 						one_hot_enc = 'otherwise'
 
+					'''
+					#Determine one hot encoding by raster statistics
+					sum_ch_0 = np.sum(y_patch_0[:,:,0])
+					sum_ch_1 = np.sum(y_patch_0[:,:,1])
+					sum_ch_2 = np.sum(y_patch_0[:,:,2])
+					one_hot_element = np.argmax([sum_ch_0, sum_ch_1, sum_ch_2])
+					if one_hot_element == 0:
+						one_hot_enc = 'otherwise'
+					elif one_hot_element == 1:
+						one_hot_enc = 'road'
+					elif one_hot_element == 2:
+						one_hot_enc = 'building'
+					else:
+						one_hot_enc = 'otherwise'
+					'''
+					
 					y_label.append(one_hot_enc)
 
 					print('NGII_Data_%s_%s_y_0.png done, and it is %s' % (i, j, one_hot_enc))
