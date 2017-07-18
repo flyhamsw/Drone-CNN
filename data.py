@@ -93,7 +93,7 @@ def make_batch(name, batch_size):
 	for fname in y_batch_fnames:
 		y_batch_image.append(cv2.imread(fname))
 	'''
-	
+
 	return x_batch, y_batch_image, y_batch_ohe
 
 def insert_patch(name, x_data, y_data, y_label):
@@ -105,6 +105,7 @@ def insert_patch(name, x_data, y_data, y_label):
 		num_data = len(x_data)
 
 	for i in range(0, num_data):
+		curr_dataset_name = name[i]
 		x_patch_dir = x_data[i]
 		y_patch_dir = y_data[i]
 
@@ -112,7 +113,7 @@ def insert_patch(name, x_data, y_data, y_label):
 		building = 1 if y_label[i] == 'building' else 0
 		otherwise = 1 if y_label[i] == 'otherwise' else 0
 
-		cur.execute("insert into patch_dir values ('%s', '%s', '%s', %r, %r, %r);" % (name, x_patch_dir, y_patch_dir, building, road, otherwise))
+		cur.execute("insert into patch_dir values ('%s', '%s', '%s', %r, %r, %r);" % (curr_dataset_name, x_patch_dir, y_patch_dir, building, road, otherwise))
 
 	conn.commit()
 	cur.close()
