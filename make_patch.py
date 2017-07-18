@@ -26,10 +26,8 @@ for row in ngii_dir:
 	os.makedirs(xpath)
 	os.makedirs(ypath)
 
-	x_rows = x.shape[0]
-	x_cols = x.shape[1]
-	y_rows = y.shape[0]
-	y_cols = y.shape[1]
+	rows = y.shape[0]
+	cols = y.shape[1]
 
 	x_data = []
 	y_data = []
@@ -80,13 +78,13 @@ for row in ngii_dir:
 						y_patch_180 = cv2.warpAffine(y_patch_90, M, (y_patch_0.shape[1], y_patch_0.shape[0]))
 						y_patch_270 = cv2.warpAffine(y_patch_180, M, (y_patch_0.shape[1], y_patch_0.shape[0]))
 
-						yname0 = '%s/NGII_Data_%s_%s_y_0.png' % (ypath, i, j)
+						yname0 = '%s/NGII_Data_%s_%s_y_0_%s.png' % (ypath, i, j, one_hot_enc)
 						cv2.imwrite(yname0, y_patch_0)
-						yname90 = '%s/NGII_Data_%s_%s_y_90.png' % (ypath, i, j)
+						yname90 = '%s/NGII_Data_%s_%s_y_90_%s.png' % (ypath, i, j, one_hot_enc)
 						cv2.imwrite(yname90, y_patch_90)
-						yname180 = '%s/NGII_Data_%s_%s_y_180.png' % (ypath, i, j)
+						yname180 = '%s/NGII_Data_%s_%s_y_180_%s.png' % (ypath, i, j, one_hot_enc)
 						cv2.imwrite(yname180, y_patch_180)
-						yname270 = '%s/NGII_Data_%s_%s_y_270.png' % (ypath, i, j)
+						yname270 = '%s/NGII_Data_%s_%s_y_270_%s.png' % (ypath, i, j, one_hot_enc)
 						cv2.imwrite(yname270, y_patch_270)
 
 						y_data.append(yname0)
@@ -105,13 +103,13 @@ for row in ngii_dir:
 						x_patch_180 = cv2.warpAffine(x_patch_90, M, (x_patch_0.shape[1], x_patch_0.shape[0]))
 						x_patch_270 = cv2.warpAffine(x_patch_180, M, (x_patch_0.shape[1], x_patch_0.shape[0]))
 
-						xname0 = '%s/NGII_Data_%s_%s_x_0.png' % (xpath, i, j)
+						xname0 = '%s/NGII_Data_%s_%s_x_0_%s.png' % (xpath, i, j, one_hot_enc)
 						cv2.imwrite(xname0, x_patch_0)
-						xname90 = '%s/NGII_Data_%s_%s_x_90.png' % (xpath, i, j)
+						xname90 = '%s/NGII_Data_%s_%s_x_90_%s.png' % (xpath, i, j, one_hot_enc)
 						cv2.imwrite(xname90, x_patch_90)
-						xname180 = '%s/NGII_Data_%s_%s_x_180.png' % (xpath, i, j)
+						xname180 = '%s/NGII_Data_%s_%s_x_180_%s.png' % (xpath, i, j, one_hot_enc)
 						cv2.imwrite(xname180, x_patch_180)
-						xname270 = '%s/NGII_Data_%s_%s_x_270.png' % (xpath, i, j)
+						xname270 = '%s/NGII_Data_%s_%s_x_270_%s.png' % (xpath, i, j, one_hot_enc)
 						cv2.imwrite(xname270, x_patch_270)
 
 						x_data.append(xname0)
