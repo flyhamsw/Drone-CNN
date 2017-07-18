@@ -7,13 +7,9 @@ ngii_dir = data.get_ngii_dir()
 
 training_patches_dir = 'training_patches'
 
-x_patch_size = 64
-y_patch_size = 64
+patch_size = 64
 
-x_patch_stride = 64
-y_patch_stride = 64
-
-y_patch_ctr = 31
+patch_stride = 64
 
 for row in ngii_dir:
 	name = []
@@ -31,7 +27,6 @@ for row in ngii_dir:
 	os.makedirs(ypath)
 
 	x_rows = x.shape[0]
-	print(x_rows)
 	x_cols = x.shape[1]
 	y_rows = y.shape[0]
 	y_cols = y.shape[1]
@@ -40,57 +35,32 @@ for row in ngii_dir:
 	y_data = []
 	y_label = []
 
-	for i in range(0, y_rows, y_patch_stride):
-		for j in range(0, y_cols, y_patch_stride):
+	for i in range(0, rows, patch_stride):
+		for j in range(0, cols, patch_stride):
 			try:
-				y_patch = np.array(y[i:i+y_patch_size, j:j+y_patch_size])
+				y_patch = np.array(y[i:i+patch_size, j:j+patch_size])
 
-				if y_patch.shape != (y_patch_size, y_patch_size, 3):
+				if y_patch.shape != (patch_size, patch_size, 3):
 					print('boundary! NO LOOK PASS')
 				else:
 					y_patch_0 = y_patch
 
-
-					#Determine one hot encoding by center pixel
-					'''
-					one_hot_element = y_patch_0[y_patch_ctr][y_patch_ctr]
-					if one_hot_element[0] == 1:
-						one_hot_enc = 'otherwise'
-					elif one_hot_element[1] == 1:
-						one_hot_enc = 'road'
-					elif one_hot_element[2] == 1:
-						one_hot_enc = 'building'
-					else:
-						one_hot_enc = 'otherwise'
-					'''
-
-					#Determine one hot encoding by raster statistics: argmax
-					'''
-					y_patch_sample = y_patch_0[15:31, 15:31, :]
-
-					sum_ch_0 = np.sum(y_patch_sample[:,:,0])
-					sum_ch_1 = np.sum(y_patch_sample[:,:,1])
-					sum_ch_2 = np.sum(y_patch_sample[:,:,2])
-
-					one_hot_element = np.argmax([sum_ch_0, sum_ch_1, sum_ch_2])
-					'''
-
 					#Determine one hot encoding by raster statistics: dominant feature statistics
-					sum_ch_0 = np.sum(y_patch_sample[:,:,0])
-					sum_ch_1 = np.sum(y_patch_sample[:,:,1])
-					sum_ch_2 = np.sum(y_patch_sample[:,:,2])
+					sum_ch_0 = np.sum(y_patch_0[:,:,0])
+					sum_ch_1 = np.sum(y_patch_0[:,:,1])
+					sum_ch_2 = np.sum(y_patch_0[:,:,2])
 
 					sum_ch_all = sum_ch_0 + sum_ch_1 + sum_ch_2
 
 					labeling_ratio_threshold = 0.7
-					ch_0_ratio = np.maximum(sum_ch_0 / sum_ch_all - labeling_ratio_threshold, 0)
-					ch_1_ratio = np.maximum(sum_ch_1 / sum_ch_all - labeling_ratio_threshold, 0)
-					ch_2_ratio = np.maximum(sum_ch_2 / sum_ch_all - labeling_ratio_threshold, 0)
+					ch_0_ratio = np.maximum(sum_ch_0 / sum_ch_all, labeling_ratio_threshold)
+					ch_1_ratio = np.maximum(sum_ch_1 / sum_ch_all, labeling_ratio_threshold)
+					ch_2_ratio = np.maximum(sum_ch_2 / sum_ch_all, labeling_ratio_threshold)
 
 					one_hot_element = np.argmax([ch_0_ratio, ch_1_ratio, ch_2_ratio])
 
-					if ch_0_ratio == 0 or ch_1_ratio == 0 or ch_2_ratio == 0:
-						print('Not enough to label')
+					if ch_0_ratio == labeling_ratio_threshold and ch_1_ratio == labeling_ratio_threshold and ch_2_ratio == labeling_ratio_threshold:
+						print('Not enough to label. ch_0_ratio: %f, ch_0_ratio: %f, ch_0_ratio: %f' % (sum_ch_0 / sum_ch_all, sum_ch_1 / sum_ch_all, sum_ch_2 / sum_ch_all))
 					else:
 						if one_hot_element == 0:
 							one_hot_enc = 'otherwise'
@@ -126,40 +96,32 @@ for row in ngii_dir:
 
 						print('NGII_Data_%s_%s_y_0.png done, and it is %s' % (i, j, one_hot_enc))
 
-						for i in range(0, x_rows, x_patch_stride):
-							for j in range(0, x_cols, x_patch_stride):
-								try:
-									x_patch = np.array(x[i:i+x_patch_size, j:j+x_patch_size])
+						x_patch = np.array(x[i:i+patch_size, j:j+patch_size])
 
-									if x_patch.shape != (x_patch_size, x_patch_size, 3):
-										print('boundary! NO LOOK PASS')
-									else:
-										x_patch_0 = x_patch
+						x_patch_0 = x_patch
 
-										M = cv2.getRotationMatrix2D((x_patch_0.shape[1]/2, x_patch_0.shape[0]/2), 90, 1)
-										x_patch_90 = cv2.warpAffine(x_patch_0, M, (x_patch_0.shape[1], x_patch_0.shape[0]))
-										x_patch_180 = cv2.warpAffine(x_patch_90, M, (x_patch_0.shape[1], x_patch_0.shape[0]))
-										x_patch_270 = cv2.warpAffine(x_patch_180, M, (x_patch_0.shape[1], x_patch_0.shape[0]))
+						M = cv2.getRotationMatrix2D((x_patch_0.shape[1]/2, x_patch_0.shape[0]/2), 90, 1)
+						x_patch_90 = cv2.warpAffine(x_patch_0, M, (x_patch_0.shape[1], x_patch_0.shape[0]))
+						x_patch_180 = cv2.warpAffine(x_patch_90, M, (x_patch_0.shape[1], x_patch_0.shape[0]))
+						x_patch_270 = cv2.warpAffine(x_patch_180, M, (x_patch_0.shape[1], x_patch_0.shape[0]))
 
-										xname0 = '%s/NGII_Data_%s_%s_x_0.png' % (xpath, i, j)
-										cv2.imwrite(xname0, x_patch_0)
-										xname90 = '%s/NGII_Data_%s_%s_x_90.png' % (xpath, i, j)
-										cv2.imwrite(xname90, x_patch_90)
-										xname180 = '%s/NGII_Data_%s_%s_x_180.png' % (xpath, i, j)
-										cv2.imwrite(xname180, x_patch_180)
-										xname270 = '%s/NGII_Data_%s_%s_x_270.png' % (xpath, i, j)
-										cv2.imwrite(xname270, x_patch_270)
+						xname0 = '%s/NGII_Data_%s_%s_x_0.png' % (xpath, i, j)
+						cv2.imwrite(xname0, x_patch_0)
+						xname90 = '%s/NGII_Data_%s_%s_x_90.png' % (xpath, i, j)
+						cv2.imwrite(xname90, x_patch_90)
+						xname180 = '%s/NGII_Data_%s_%s_x_180.png' % (xpath, i, j)
+						cv2.imwrite(xname180, x_patch_180)
+						xname270 = '%s/NGII_Data_%s_%s_x_270.png' % (xpath, i, j)
+						cv2.imwrite(xname270, x_patch_270)
 
-										x_data.append(xname0)
-										x_data.append(xname90)
-										x_data.append(xname180)
-										x_data.append(xname270)
+						x_data.append(xname0)
+						x_data.append(xname90)
+						x_data.append(xname180)
+						x_data.append(xname270)
 
-										for p in range(0, 4):
-											name.append(curr_dataset_name)
-										print('NGII_Data_%s_%s_x_0.png done.' % (i, j))
-								except Exception as e:
-									print(e)
+						for p in range(0, 4):
+							name.append(curr_dataset_name)
+						print('NGII_Data_%s_%s_x_0.png done.' % (i, j))
 			except Exception as e:
 				print(e)
 
