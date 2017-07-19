@@ -55,13 +55,9 @@ def get_ngii_dir(purpose):
 	conn.close()
 	return ngii_dir
 
-def get_patch_dir(name):
-	conn, cur = get_db_connection()
-	#cur.execute("select x_dir, y_dir from patch_dir where name='%s' and purpose='%s';" % (name, purpose))
-	cur.execute("select patch_dir.x_dir, patch_dir.y_dir from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where patch_dir.name='%s';" % name)
+def get_patch_dir(conn, cur, purpose, batch_size):
+	cur.execute("select patch_dir.x_dir, patch_dir.y_dir, patch_dir.building, patch_dir.road, patch_dir.otherwise from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where ngii_dir.purpose='%s' order by RANDOM() LIMIT %d;" % (purpose, batch_size))
 	patch_dir = cur.fetchall()
-	cur.close()
-	conn.close()
 	return patch_dir
 
 def get_ohe(y_batch_fnames):
@@ -72,7 +68,6 @@ def get_ohe(y_batch_fnames):
 	for y_dir in y_batch_fnames:
 		cur.execute("select building, road, otherwise from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where patch_dir.y_dir='%s';" % y_dir)
 		ohe = cur.fetchall()
-
 
 		building = ohe[0][0]
 		road = ohe[0][1]
@@ -86,22 +81,35 @@ def get_ohe(y_batch_fnames):
 
 	return ohe_list
 
-def make_batch(name, batch_size):
-	patch_dir = get_patch_dir(name)
+def get_steps(batch_size):
+	conn, cur = get_db_connection()
+	cur.execute("select count(*) from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where ngii_dir.purpose='training';")
+	rows = cur.fetchall()
+	steps = int(rows[0][0]/batch_size)
+
+	print('%d steps / epoch' % steps)
+
+	return steps
+
+def make_batch(conn, cur, purpose, batch_size):
+	patch_dir = get_patch_dir(conn, cur, purpose, batch_size)
 
 	x_batch_fnames = []
-	y_batch_fnames = []
+	y_batch_ohe = []
 
-	for i in random.sample(range(len(patch_dir)-1), batch_size):
+	for i in range(0, len(patch_dir)):
 		x_batch_fnames.append(patch_dir[i][0])
-		y_batch_fnames.append(patch_dir[i][1])
+
+		building = patch_dir[i][2]
+		road = patch_dir[i][3]
+		otherwise = patch_dir[i][4]
+
+		y_batch_ohe.append([building, road, otherwise])
 
 	x_batch = []
 
 	for fname in x_batch_fnames:
 		x_batch.append(cv2.imread(fname))
-
-	y_batch_ohe = get_ohe(y_batch_fnames)
 
 	return x_batch, y_batch_ohe
 
