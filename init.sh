@@ -1,4 +1,4 @@
-rm -r training_patches
+rm -r patches
 rm -r tb
 python data.py
 python make_patch.py

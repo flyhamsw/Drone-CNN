@@ -15,18 +15,25 @@ def get_db_connection():
 	return conn, cur
 
 def insert_ngii_dataset():
-	ngii_dataset_dir = 'ngii_dataset'
+	ngii_dataset_training_dir = 'ngii_dataset_training'
+	ngii_dataset_test_dir = 'ngii_dataset_test'
 
 	conn, cur = get_db_connection()
-	dataset_names = os.listdir(ngii_dataset_dir)
+	dataset_training_names = os.listdir(ngii_dataset_training_dir)
+	dataset_test_names = os.listdir(ngii_dataset_test_dir)
 
 	cur.execute('delete from ngii_dir;')
 	cur.execute('delete from patch_dir;')
 
-	for name in dataset_names:
-		ngii_x_dir = '%s/%s/x.png' % (ngii_dataset_dir, name)
-		ngii_y_dir = '%s/%s/y.png' % (ngii_dataset_dir, name)
-		cur.execute("insert into ngii_dir values ('%s', '%s', '%s');" % (name, ngii_x_dir, ngii_y_dir))
+	for name in dataset_training_names:
+		ngii_x_dir = '%s/%s/x.png' % (ngii_dataset_training_dir, name)
+		ngii_y_dir = '%s/%s/y.png' % (ngii_dataset_training_dir, name)
+		cur.execute("insert into ngii_dir values ('%s', '%s', '%s', 'training');" % (name, ngii_x_dir, ngii_y_dir))
+
+	for name in dataset_test_names:
+		ngii_x_dir = '%s/%s/x.png' % (ngii_dataset_test_dir, name)
+		ngii_y_dir = '%s/%s/y.png' % (ngii_dataset_test_dir, name)
+		cur.execute("insert into ngii_dir values ('%s', '%s', '%s', 'test');" % (name, ngii_x_dir, ngii_y_dir))
 
 	conn.commit()
 	cur.close()
@@ -40,9 +47,9 @@ def get_ngii_dir():
 	conn.close()
 	return ngii_dir
 
-def get_patch_dir(name):
+def get_patch_dir(name, purpose):
 	conn, cur = get_db_connection()
-	cur.execute("select x_dir, y_dir from patch_dir where name='%s';" % name)
+	cur.execute("select x_dir, y_dir from patch_dir where name='%s' purpose='%s';" % (name, purpose))
 	patch_dir = cur.fetchall()
 	cur.close()
 	conn.close()
@@ -54,7 +61,7 @@ def get_ohe(y_batch_fnames):
 	ohe_list = []
 
 	for y_dir in y_batch_fnames:
-		cur.execute("select building, road, otherwise from patch_dir where y_dir='%s';" % y_dir)
+		cur.execute("select building, road, otherwise from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where patch_dir.y_dir='%s';" % y_dir)
 		ohe = cur.fetchall()
 
 
@@ -70,8 +77,8 @@ def get_ohe(y_batch_fnames):
 
 	return ohe_list
 
-def make_batch(name, batch_size):
-	patch_dir = get_patch_dir(name)
+def make_batch(name, batch_size, purpose):
+	patch_dir = get_patch_dir(name, purpose)
 
 	x_batch_fnames = []
 	y_batch_fnames = []
@@ -86,13 +93,6 @@ def make_batch(name, batch_size):
 		x_batch.append(cv2.imread(fname))
 
 	y_batch_ohe = get_ohe(y_batch_fnames)
-
-	y_batch_image = []
-
-	'''
-	for fname in y_batch_fnames:
-		y_batch_image.append(cv2.imread(fname))
-	'''
 
 	return x_batch, y_batch_image, y_batch_ohe
 

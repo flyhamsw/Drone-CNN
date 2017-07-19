@@ -5,11 +5,11 @@ import os
 
 ngii_dir = data.get_ngii_dir()
 
-training_patches_dir = 'training_patches'
+patches_dir = 'patches'
 
 patch_size = 64
 
-patch_stride = 64
+patch_stride = patch_size
 
 for row in ngii_dir:
 	name = []
@@ -20,8 +20,8 @@ for row in ngii_dir:
 	x = np.array(cv2.imread(x_dir))
 	y = np.array(cv2.imread(y_dir))
 
-	xpath = '%s/%s/x' % (training_patches_dir, curr_dataset_name)
-	ypath = '%s/%s/y' % (training_patches_dir, curr_dataset_name)
+	xpath = '%s/%s/x' % (patches_dir, curr_dataset_name)
+	ypath = '%s/%s/y' % (patches_dir, curr_dataset_name)
 
 	os.makedirs(xpath)
 	os.makedirs(ypath)
@@ -46,9 +46,9 @@ for row in ngii_dir:
 					#Determine one hot encoding by raster statistics: dominant feature statistics
 					sum_ch_0 = np.sum(y_patch_0[:,:,0])
 					sum_ch_1 = np.sum(y_patch_0[:,:,1])
-					sum_ch_2 = np.sum(y_patch_0[:,:,2])
+					sum_ch_2 = np.sum(y_patch_0[:,:,2]) * 0.5
 
-					sum_ch_all = sum_ch_0 + sum_ch_1 + sum_ch_2
+					sum_ch_all = sum_ch_0 + sum_ch_1 + sum_ch_2 * 0.5
 
 					labeling_ratio_threshold = 0.7
 					ch_0_ratio = np.maximum(sum_ch_0 / sum_ch_all, labeling_ratio_threshold)
@@ -61,13 +61,15 @@ for row in ngii_dir:
 						print('Not enough to label. ch_0_ratio: %f, ch_0_ratio: %f, ch_0_ratio: %f' % (sum_ch_0 / sum_ch_all, sum_ch_1 / sum_ch_all, sum_ch_2 / sum_ch_all))
 					else:
 						if one_hot_element == 0:
-							one_hot_enc = 'otherwise'
+							one_hot_enc = 'building'
 						elif one_hot_element == 1:
 							one_hot_enc = 'road'
 						elif one_hot_element == 2:
-							one_hot_enc = 'building'
+							one_hot_enc = 'otherwise'
 						else:
 							one_hot_enc = 'otherwise'
+
+						#if one_hot_enc != 'otherwise':
 
 						for p in range(0, 4):
 							y_label.append(one_hot_enc)

@@ -6,9 +6,9 @@ ngii_dir = data.get_ngii_dir()
 num_data = len(data.get_ngii_dir())
 
 def label_coder(ohe):
-    if ohe == [1, 0, 0]: label = 'otherwise'
+    if ohe == [1, 0, 0]: label = 'building'
     if ohe == [0, 1, 0]: label = 'road'
-    if ohe == [0, 0, 1]: label = 'building'
+    if ohe == [0, 0, 1]: label = 'otherwise'
     return label
 
 for i in range(0, num_data):
