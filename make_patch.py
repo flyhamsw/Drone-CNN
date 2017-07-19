@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import os
 
-ngii_dir = data.get_ngii_dir()
+ngii_dir = data.get_ngii_dir_all()
 
 patches_dir = 'patches'
 

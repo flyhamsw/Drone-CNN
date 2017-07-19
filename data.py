@@ -39,17 +39,26 @@ def insert_ngii_dataset():
 	cur.close()
 	conn.close()
 
-def get_ngii_dir():
+def get_ngii_dir_all():
 	conn, cur = get_db_connection()
-	cur.execute('select * from ngii_dir;')
+	cur.execute("select * from ngii_dir;")
 	ngii_dir = cur.fetchall()
 	cur.close()
 	conn.close()
 	return ngii_dir
 
-def get_patch_dir(name, purpose):
+def get_ngii_dir(purpose):
 	conn, cur = get_db_connection()
-	cur.execute("select x_dir, y_dir from patch_dir where name='%s' purpose='%s';" % (name, purpose))
+	cur.execute("select * from ngii_dir where purpose='%s';" % purpose)
+	ngii_dir = cur.fetchall()
+	cur.close()
+	conn.close()
+	return ngii_dir
+
+def get_patch_dir(name):
+	conn, cur = get_db_connection()
+	#cur.execute("select x_dir, y_dir from patch_dir where name='%s' and purpose='%s';" % (name, purpose))
+	cur.execute("select patch_dir.x_dir, patch_dir.y_dir from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where patch_dir.name='%s';" % name)
 	patch_dir = cur.fetchall()
 	cur.close()
 	conn.close()
@@ -77,8 +86,8 @@ def get_ohe(y_batch_fnames):
 
 	return ohe_list
 
-def make_batch(name, batch_size, purpose):
-	patch_dir = get_patch_dir(name, purpose)
+def make_batch(name, batch_size):
+	patch_dir = get_patch_dir(name)
 
 	x_batch_fnames = []
 	y_batch_fnames = []
@@ -94,7 +103,7 @@ def make_batch(name, batch_size, purpose):
 
 	y_batch_ohe = get_ohe(y_batch_fnames)
 
-	return x_batch, y_batch_image, y_batch_ohe
+	return x_batch, y_batch_ohe
 
 def insert_patch(name, x_data, y_data, y_label):
 	conn, cur = get_db_connection()
