@@ -1,132 +1,84 @@
 import tensorflow as tf
+import os
+
+import models
 import data
-import datetime
-import csv
 
-input_patch_size = 64
-output_patch_size = 32
+def train_model(model, model_name, epoch):
+	with tf.variable_scope('model_name'):
+		#os.makedirs('tb/%s' % model_name)
+		os.makedirs('trained_model/%s' % model_name)
 
-x_image = tf.placeholder('float', shape=[None, input_patch_size, input_patch_size, 3])
-y_ = tf.placeholder('float', shape=[None, output_patch_size, output_patch_size, 3])
+		#tf.summary.image('input x_image', model.x_image)
+		#tf.summary.scalar('train_accuracy', model.accuracy)
+		#tf.summary.scalar('cross_entropy', model.cross_entropy)
+		#tf.summary.scalar('learning rate', model.lr)
 
-def weight_variable(shape, seed):
-	initial = tf.truncated_normal(shape, stddev=0.001, seed=seed)
-	return tf.Variable(initial)
+		sess = tf.Session()
 
-def bias_variable(shape):
-	initial = tf.constant(0.1, shape=shape)
-	#initial = tf.truncated_normal(shape, stddev=0.1)
-	return tf.Variable(initial)
+		sess.run(tf.global_variables_initializer())
+		sess.run(tf.local_variables_initializer())
 
-def conv2d(x, W):
-	return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+		saver = tf.train.Saver()
 
-def conv2d_stride(x, W):
-	return tf.nn.conv2d(x, W, strides=[1, 2, 2, 1], padding='SAME')
+		f_log = open('trained_model/%s/log.csv' % model_name, 'w')
 
-def max_pool_2x2(x):
-	return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 1, 1, 1], padding='SAME')
+		#merged = tf.summary.merge_all()
+		#train_writer = tf.summary.FileWriter('/home/lsmjn/tensorOrtho_TY/tb/%s' % model_name, sess.graph)
 
-#C(64, 9*9/2)
-W_conv1 = weight_variable([16, 16, 3, 64], 678678678)
-b_conv1 = bias_variable([64])
-h_conv1 = tf.nn.relu(conv2d_stride(x_image, W_conv1) + b_conv1)
+		ngii_dir_training = data.get_ngii_dir('training')
+		ngii_dir_test = data.get_ngii_dir('test')
 
-#P(2/1)
-h_pool1 = max_pool_2x2(h_conv1)
+		conn, cur = data.get_db_connection()
 
-#C(128, 7*7/1)
-W_conv2 = weight_variable([4, 4, 64, 112], 12312323)
-b_conv2 = bias_variable([112])
-h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
+		steps = data.get_steps(batch_size)
 
-#C(128, 5*5/1)
-W_conv3 = weight_variable([3, 3, 112, 80], 234234234)
-b_conv3 = bias_variable([80])
-h_conv3 = tf.nn.relu(conv2d(h_conv2, W_conv3) + b_conv3)
+		k = 0
 
-#FC(4096)
-W_fc1 = weight_variable([output_patch_size*output_patch_size*80,4096], 345345345)
-b_fc1 = bias_variable([4096])
-h_conv3_flat = tf.reshape(h_conv3, [-1, output_patch_size*output_patch_size*80])
-h_fc1 = tf.nn.relu(tf.matmul(h_conv3_flat, W_fc1) + b_fc1)
-keep_prob = tf.placeholder(tf.float32)
-h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+		print('\nCurrent Model: %s' % model_name)
 
-#FC(768)
-W_fc2 = weight_variable([4096, output_patch_size*output_patch_size*3], 45456)
-b_fc2 = bias_variable([output_patch_size*output_patch_size*3])
-h_fc2 = tf.matmul(h_fc1, W_fc2) + b_fc2
-h_fc2_drop = tf.nn.dropout(h_fc2, keep_prob)
+		for i in range(0, epoch):
+			for j in range(0, steps):
+				x_batch, y_batch = data.make_batch(conn, cur, 'training', batch_size)
 
+				if j%10 == 0:
+					print('\nstep %d, epoch %d' % (j, i))
+					train_xe, train_accuracy = sess.run([model.cross_entropy, model.accuracy], feed_dict={model.x_image:x_batch, model.y_:y_batch, model.keep_prob: 1.0})
+					print('Train XE:')
+					print(train_xe)
+					print('Train Accuracy:')
+					print(train_accuracy)
 
-y_conv = tf.reshape(h_fc2_drop, [-1, output_patch_size, output_patch_size, 3])
+					for l in range(0, len(ngii_dir_test)):
+						dataset_test_name = ngii_dir_test[l][0]
+						x_batch_test, y_batch_test = data.make_batch(conn, cur, 'test', batch_size)
+						test_accuracy = sess.run(model.accuracy, feed_dict={model.x_image:x_batch_test, model.y_:y_batch_test, model.keep_prob: 1.0})
+						print('Test Accuracy:')
+						print(test_accuracy)
 
-threshold = tf.constant(0.8, shape=[output_patch_size*output_patch_size*3])
-y_conv_threshold = tf.reshape(tf.maximum(tf.zeros(tf.shape(threshold)), tf.add(h_fc2_drop, -threshold)) * 5, [-1, output_patch_size, output_patch_size, 3])
+					f_log.write('%d,%f,%f,%f\n' % (j, train_xe, train_accuracy, test_accuracy))
+				if j%5000 == 0:
+					model.lr_value = model.lr_value * 0.1
+					print('Learning rate:')
+					print(model.lr_value)
 
-tf.summary.image('input x_image', x_image)
-tf.summary.image('input y_', y_)
-tf.summary.image('predicted y_conv', y_conv)
-tf.summary.image('thresholded y_conv', y_conv_threshold)
+				#summary, _ = sess.run([merged, model.train_step], feed_dict={model.x_image: x_batch, model.y_: y_batch, model.lr:model.lr_value, model.m:model.m_value, model.keep_prob: 0.5})
+				sess.run(model.train_step, feed_dict={model.x_image: x_batch, model.y_: y_batch, model.lr:model.lr_value, model.m:model.m_value, model.keep_prob: 0.5})
+				#train_writer.add_summary(summary, k)
+				k = k + 1
 
-cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv))
-#cross_entropy = -tf.reduce_sum(y_*tf.log(y_conv))
-tf.summary.scalar('cross_entropy', cross_entropy)
+		cur.close()
+		conn.close()
 
-lr = tf.placeholder(tf.float32)
-m = tf.placeholder(tf.float32)
-#train_step = tf.train.AdamOptimizer(lr).minimize(cross_entropy)
-#train_step = tf.train.RMSPropOptimizer(lr).minimize(cross_entropy)
-train_step = tf.train.MomentumOptimizer(learning_rate=lr, momentum=m).minimize(cross_entropy)
+		save_path = saver.save(sess, "trained_model/%s/Drone_CNN.ckpt" % model_name)
+		print('Model saved in file: %s' % save_path)
+		#train_writer.close()
+		f_log.close()
 
-sess = tf.Session()
+if __name__=='__main__':
+	batch_size = 128
+	model_dict = {'Saito_label_bn': models.Saito_label_bn(input_patch_size=64, lr_value=0.0001, lr_decay_rate=0.1, lr_decay_freq=5000, m_value=0.9, batch_size=batch_size), 'VGG16_label': models.VGG16_label(input_patch_size=64, lr_value=0.0005, lr_decay_rate=0.1, lr_decay_freq=5000, m_value=0.9, batch_size=batch_size)}
+	#model_dict = {'VGG16_label': models.VGG16_label(input_patch_size=64, lr_value=0.0005, lr_decay_rate=0.1, lr_decay_freq=1000, m_value=0.9, batch_size=batch_size), 'Saito_label_bn': models.Saito_label_bn(input_patch_size=64, lr_value=0.0001, lr_decay_rate=0.1, lr_decay_freq=5000, m_value=0.9, batch_size=batch_size)}
 
-sess.run(tf.global_variables_initializer())
-sess.run(tf.local_variables_initializer())
-
-saver = tf.train.Saver()
-
-f_log = open('trained_model/log.csv', 'w')
-
-merged = tf.summary.merge_all()
-train_writer = tf.summary.FileWriter('/home/lsmjn/tensorOrtho_TY/tb', sess.graph)
-
-ngii_dir = data.get_ngii_dir()
-
-num_data = len(data.get_ngii_dir())
-lr_value = 0.1 / 0.1
-m_value = 0.9
-steps = 2
-
-k = 0
-
-for epoch in range(0, 10000000000000000000000000000000000000):
-	for i in range(num_data):
-		dataset_name = ngii_dir[i][0]
-		print('Current Dataset: %s (num_data %d)' % (dataset_name, i))
-
-		for j in range(0, steps):
-			x_batch, y_batch,_ = data.make_batch(dataset_name, 8)
-
-			print('step %d, acc step %d, epoch %d' % (j, k, epoch))
-
-			if k%10 == 0:
-				train_xe = sess.run(cross_entropy, feed_dict={x_image:x_batch, y_:y_batch, keep_prob:1.0})
-				print('Train XE: %f' % train_xe)
-				f_log.write('%d,%f\n' % (k, train_xe))
-			if k%1000 == 0:
-				lr_value = lr_value * 0.1
-				print('Learning rate:')
-				print(lr_value)
-
-			summary, _ = sess.run([merged, train_step], feed_dict={x_image: x_batch, y_: y_batch, keep_prob:0.5, lr:lr_value, m:m_value})
-
-			train_writer.add_summary(summary, k)
-
-			k = k + 1
-
-save_path = saver.save(sess, "trained_model/ngii_CNN.ckpt")
-print('Model saved in file: %s' % save_path)
-train_writer.close()
-f_log.close()
+	for model_name in model_dict:
+		train_model(model_dict[model_name], model_name, epoch=50)

@@ -16,6 +16,8 @@ class Common_label:
         self.m = tf.placeholder(tf.float32)
         self.keep_prob = tf.placeholder(tf.float32)
 
+        self.g = tf.Graph()
+
     def weight_variable(self, shape, seed):
     	initial = tf.truncated_normal(shape, stddev=0.1, seed=seed)
     	return tf.Variable(initial)
@@ -153,7 +155,7 @@ class VGG16_label(Common_label):
 
         self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_, logits=self.y_conv))
 
-        self.train_step = tf.train.MomentumOptimizer(learning_rate=self.lr, momentum=self.m).minimize(self.cross_entropy)
+        self.train_step = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.cross_entropy)
 
 
 
