@@ -1,7 +1,10 @@
 import tensorflow as tf
+import os
+import data
 
 class Common_label:
-    def __init__(self, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
+    def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
+        self.model_name = model_name
         self.input_patch_size = input_patch_size
         self.lr_value = lr_value / lr_decay_rate
         self.lr_decay_rate = lr_decay_rate
@@ -70,9 +73,79 @@ class Common_label:
             normed = tf.nn.batch_normalization(x, mean, var, beta, gamma, 1e-3)
         return normed
 
+    def train(self, epoch):
+    	os.makedirs('tb/%s' % self.model_name)
+    	os.makedirs('trained_model/%s' % self.model_name)
+
+    	tf.summary.image('input x_image', self.x_image)
+    	tf.summary.scalar('train_accuracy', self.accuracy)
+    	tf.summary.scalar('cross_entropy', self.cross_entropy)
+    	tf.summary.scalar('learning rate', self.lr)
+
+    	sess = tf.Session()
+
+    	sess.run(tf.global_variables_initializer())
+    	sess.run(tf.local_variables_initializer())
+
+    	saver = tf.train.Saver()
+
+    	f_log = open('trained_model/%s/log.csv' % self.model_name, 'w')
+
+    	merged = tf.summary.merge_all()
+    	train_writer = tf.summary.FileWriter('/home/lsmjn/tensorOrtho_TY/tb/%s' % self.model_name, sess.graph)
+
+    	ngii_dir_training = data.get_ngii_dir('training')
+    	ngii_dir_test = data.get_ngii_dir('test')
+
+    	conn, cur = data.get_db_connection()
+
+    	steps = data.get_steps(self.batch_size)
+
+    	k = 0
+
+    	print('\nCurrent Model: %s' % self.model_name)
+
+    	for i in range(0, epoch):
+    		for j in range(0, steps):
+    			x_batch, y_batch = data.make_batch(conn, cur, 'training', self.batch_size)
+
+    			if j%10 == 0:
+    				print('\nstep %d, epoch %d' % (k, i))
+    				train_xe, train_accuracy = sess.run([self.cross_entropy, self.accuracy], feed_dict={self.x_image:x_batch, self.y_:y_batch, self.keep_prob: 1.0})
+    				print('Train XE:')
+    				print(train_xe)
+    				print('Train Accuracy:')
+    				print(train_accuracy)
+
+    				for l in range(0, len(ngii_dir_test)):
+    					dataset_test_name = ngii_dir_test[l][0]
+    					x_batch_test, y_batch_test = data.make_batch(conn, cur, 'test', self.batch_size)
+    					test_accuracy = sess.run(self.accuracy, feed_dict={self.x_image:x_batch_test, self.y_:y_batch_test, self.keep_prob: 1.0})
+    					print('Test Accuracy:')
+    					print(test_accuracy)
+
+    				f_log.write('%d,%f,%f,%f\n' % (j, train_xe, train_accuracy, test_accuracy))
+    			if j%self.lr_decay_freq == 0:
+    				self.lr_value = self.lr_value * 0.1
+    				print('Learning rate:')
+    				print(self.lr_value)
+
+    			summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
+    			#sess.run(model.train_step, feed_dict={model.x_image: x_batch, model.y_: y_batch, model.lr:model.lr_value, model.m:model.m_value, model.keep_prob: 0.5})
+    			train_writer.add_summary(summary, k)
+    			k = k + 1
+
+    	cur.close()
+    	conn.close()
+
+    	save_path = saver.save(sess, "trained_model/%s/Drone_CNN.ckpt" % model_name)
+    	print('Model saved in file: %s' % save_path)
+    	train_writer.close()
+    	f_log.close()
+
 class VGG16_label(Common_label):
     def __init__(self, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
-        Common_label.__init__(self, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
+        Common_label.__init__(self, 'VGG16_label', input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
 
         #Size: 64*64
         self.W_conv1 = self.weight_variable([3, 3, 3, 64], 678678678)
@@ -161,7 +234,7 @@ class VGG16_label(Common_label):
 
 class Saito_label_bn(Common_label):
     def __init__(self, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
-        Common_label.__init__(self, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
+        Common_label.__init__(self, 'Saito_label_bn', input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
         self.output_patch_size = int(input_patch_size / 2)
 
         #C(64, 9*9/2)
