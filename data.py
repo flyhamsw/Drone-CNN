@@ -39,6 +39,22 @@ def insert_ngii_dataset():
 	cur.close()
 	conn.close()
 
+def insert_drone_dataset():
+	drone_dataset_dir = 'drone_dataset'
+
+	conn, cur = get_db_connection()
+	dataset_drone_names = os.listdir(drone_dataset_dir)
+
+	cur.execute('delete from drone_dir;')
+
+	for name in dataset_drone_names:
+		drone_x_dir = '%s/%s/x.png' % (drone_dataset_dir, name)
+		cur.execute("insert into drone_dir values ('%s', '%s');" % (name, drone_x_dir))
+
+	conn.commit()
+	cur.close()
+	conn.close()
+
 def get_ngii_dir_all():
 	conn, cur = get_db_connection()
 	cur.execute("select * from ngii_dir;")
@@ -46,6 +62,14 @@ def get_ngii_dir_all():
 	cur.close()
 	conn.close()
 	return ngii_dir
+
+def get_drone_dir_all():
+	conn, cur = get_db_connection()
+	cur.execute("select * from drone_dir;")
+	drone_dir = cur.fetchall()
+	cur.close()
+	conn.close()
+	return drone_dir
 
 def get_ngii_dir(purpose):
 	conn, cur = get_db_connection()
@@ -59,6 +83,11 @@ def get_patch_dir(conn, cur, purpose, batch_size):
 	cur.execute("select patch_dir.x_dir, patch_dir.y_dir, patch_dir.building, patch_dir.road, patch_dir.otherwise from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where ngii_dir.purpose='%s' order by RANDOM() LIMIT %d;" % (purpose, batch_size))
 	patch_dir = cur.fetchall()
 	return patch_dir
+
+def get_drone_patch_dir(conn, cur, start_idx, batch_size):
+	cur.execute("select x_dir from drone_patch_dir where num between %d and %d" % (start_idx, start_idx + batch_size - 1))
+	drone_patch_dir = cur.fetchall()
+	return drone_patch_dir
 
 def get_ohe(y_batch_fnames):
 	conn, cur = get_db_connection()
@@ -91,6 +120,12 @@ def get_steps(batch_size):
 
 	return steps
 
+def get_patch_num(dataset_name):
+	conn, cur = get_db_connection()
+	cur.execute("select count(*) from drone_patch_dir where name='%s'" % dataset_name)
+	num = cur.fetchall()
+	return num[0][0]
+
 def make_batch(conn, cur, purpose, batch_size):
 	patch_dir = get_patch_dir(conn, cur, purpose, batch_size)
 
@@ -110,8 +145,33 @@ def make_batch(conn, cur, purpose, batch_size):
 
 	for fname in x_batch_fnames:
 		x_batch.append(cv2.imread(fname))
-
+	print(len(x_batch))
+	print(len(x_batch[0]))
+	print(len(x_batch[0][0]))
+	print(len(x_batch[0][0][0]))
 	return x_batch, y_batch_ohe
+
+def make_batch_drone(conn, cur, start_idx, batch_size):
+	patch_dir = get_drone_patch_dir(conn, cur, start_idx, batch_size)
+
+	x_batch_fnames = []
+
+	for i in range(0, len(patch_dir)):
+		x_batch_fnames.append(patch_dir[i][0])
+
+	x_batch = []
+
+	for fname in x_batch_fnames:
+		print(fname)
+		x_batch.append(cv2.imread(fname))
+
+	print(len(x_batch))
+	print(len(x_batch[0]))
+	print(len(x_batch[0][0]))
+	print(len(x_batch[0][0][0]))
+
+	return x_batch
+
 
 def insert_patch(name, x_data, y_data, y_label):
 	conn, cur = get_db_connection()
@@ -131,6 +191,20 @@ def insert_patch(name, x_data, y_data, y_label):
 		otherwise = 1 if y_label[i] == 'otherwise' else 0
 
 		cur.execute("insert into patch_dir values ('%s', '%s', '%s', %r, %r, %r);" % (curr_dataset_name, x_patch_dir, y_patch_dir, building, road, otherwise))
+
+	conn.commit()
+	cur.close()
+	conn.close()
+
+def insert_drone_patch(name, x_data, num):
+	conn, cur = get_db_connection()
+
+	for i in range(0, len(x_data)):
+		curr_dataset_name = name[i]
+		x_patch_dir = x_data[i]
+		curr_num = num[i]
+
+		cur.execute("insert into drone_patch_dir values ('%s', '%s', %d);" % (curr_dataset_name, x_patch_dir, curr_num))
 
 	conn.commit()
 	cur.close()

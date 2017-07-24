@@ -1,5 +1,7 @@
 import tensorflow as tf
 import os
+import numpy as np
+from matplotlib import pyplot as plt
 import data
 
 class Common_label:
@@ -74,13 +76,13 @@ class Common_label:
         return normed
 
     def train(self, epoch):
-    	os.makedirs('tb/%s' % self.model_name)
+    	#os.makedirs('tb/%s' % self.model_name)
     	os.makedirs('trained_model/%s' % self.model_name)
 
-    	tf.summary.image('input x_image', self.x_image)
-    	tf.summary.scalar('train_accuracy', self.accuracy)
-    	tf.summary.scalar('cross_entropy', self.cross_entropy)
-    	tf.summary.scalar('learning rate', self.lr)
+    	#tf.summary.image('input x_image', self.x_image)
+    	#tf.summary.scalar('train_accuracy', self.accuracy)
+    	#tf.summary.scalar('cross_entropy', self.cross_entropy)
+    	#tf.summary.scalar('learning rate', self.lr)
 
     	sess = tf.Session()
 
@@ -91,8 +93,8 @@ class Common_label:
 
     	f_log = open('trained_model/%s/log.csv' % self.model_name, 'w')
 
-    	merged = tf.summary.merge_all()
-    	train_writer = tf.summary.FileWriter('/home/lsmjn/tensorOrtho_TY/tb/%s' % self.model_name, sess.graph)
+    	#merged = tf.summary.merge_all()
+    	#train_writer = tf.summary.FileWriter('/home/lsmjn/tensorOrtho_TY/tb/%s' % self.model_name, sess.graph)
 
     	ngii_dir_training = data.get_ngii_dir('training')
     	ngii_dir_test = data.get_ngii_dir('test')
@@ -130,22 +132,104 @@ class Common_label:
     				print('Learning rate:')
     				print(self.lr_value)
 
-    			summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
-    			#sess.run(model.train_step, feed_dict={model.x_image: x_batch, model.y_: y_batch, model.lr:model.lr_value, model.m:model.m_value, model.keep_prob: 0.5})
-    			train_writer.add_summary(summary, k)
+    			#summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
+    			sess.run(self.train_step, feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
+    			#train_writer.add_summary(summary, k)
     			k = k + 1
 
     	cur.close()
     	conn.close()
 
-    	save_path = saver.save(sess, "trained_model/%s/Drone_CNN.ckpt" % model_name)
+    	save_path = saver.save(sess, "trained_model/%s/Drone_CNN.ckpt" % self.model_name)
     	print('Model saved in file: %s' % save_path)
-    	train_writer.close()
+    	#train_writer.close()
     	f_log.close()
 
+    def restore(self):
+        saver = tf.train.Saver()
+
+        sess = tf.Session()
+        saver.restore(sess, "trained_model/%s/Drone_CNN.ckpt" % self.model_name)
+        print("Model restored.")
+        return sess
+
+    def create_test_patches(self):
+        y_conv_argmax = tf.argmax(self.y_conv, 1)
+        with self.restore() as sess:
+            conn, cur = data.get_db_connection()
+            x_batch_test, y_batch_test = data.make_batch(conn, cur, 'test', 20)
+            y_prediction, test_accuracy = sess.run([y_conv_argmax, self.accuracy], feed_dict={self.x_image:x_batch_test, self.y_:y_batch_test, self.keep_prob: 1.0})
+
+            f, axarr = plt.subplots(2, 10)
+
+            f.suptitle('Test Result of Test Dataset (Accuracy: %f)' % test_accuracy)
+
+            for i in range(0, 20):
+                if y_prediction[i] == 0:
+                    y_label = 'Building'
+                elif y_prediction[i] == 1:
+                    y_label = 'Road'
+                elif y_prediction[i] == 2:
+                    y_label = 'Otherwise'
+                else:
+                    y_label = "???"
+                axarr[0, i].imshow(x_batch_test[i]) if i < 10 else axarr[1, i-10].imshow(x_batch_test[i])
+                axarr[0, i].set_title(y_label) if i < 10 else axarr[1, i-10].set_title(y_label)
+
+            plt.show()
+
+
+    def drone_prediction(self):
+        y_conv_argmax = tf.argmax(self.y_conv, 1)
+        conn, cur = data.get_db_connection()
+        drone_dir = data.get_drone_dir_all()
+
+        with self.restore() as sess:
+            for i in range(0, len(drone_dir)):
+                curr_dataset_name = drone_dir[i][0]
+                print('Current Dataset: %s' % curr_dataset_name)
+                end_idx = data.get_patch_num(curr_dataset_name)
+
+                for start_idx in range(0, end_idx, 20):
+                    x_batch_drone = data.make_batch_drone(conn, cur, start_idx, 20)
+                    y_prediction = sess.run(y_conv_argmax, feed_dict={self.x_image:x_batch_drone, self.keep_prob: 1.0})
+
+                    '''
+                    for pred_result in y_prediction:
+                        if pred_result == 0:
+                            y_label = 'Building'
+                        elif pred_result== 1:
+                            y_label = 'Road'
+                        elif pred_result== 2:
+                            y_label = 'Otherwise'
+                        else:
+                            y_label = "???"
+                        print(y_label)
+                    '''
+
+                    f, axarr = plt.subplots(2, 10)
+
+                    f.suptitle('Prediction Result of %s Dataset' % curr_dataset_name)
+
+                    for i in range(0, 20):
+                        if y_prediction[i] == 0:
+                            y_label = 'Building'
+                        elif y_prediction[i] == 1:
+                            y_label = 'Road'
+                        elif y_prediction[i] == 2:
+                            y_label = 'Otherwise'
+                        else:
+                            y_label = "???"
+                        axarr[0, i].imshow(x_batch_drone[i]) if i < 10 else axarr[1, i-10].imshow(x_batch_drone[i])
+                        axarr[0, i].set_title(y_label) if i < 10 else axarr[1, i-10].set_title(y_label)
+
+                    plt.show()
+
+
+
 class VGG16_label(Common_label):
-    def __init__(self, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
-        Common_label.__init__(self, 'VGG16_label', input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
+    def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
+        Common_label.__init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
 
         #Size: 64*64
         self.W_conv1 = self.weight_variable([3, 3, 3, 64], 678678678)
@@ -233,8 +317,8 @@ class VGG16_label(Common_label):
 
 
 class Saito_label_bn(Common_label):
-    def __init__(self, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
-        Common_label.__init__(self, 'Saito_label_bn', input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
+    def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
+        Common_label.__init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
         self.output_patch_size = int(input_patch_size / 2)
 
         #C(64, 9*9/2)
