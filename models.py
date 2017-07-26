@@ -28,7 +28,6 @@ class Common:
 
     def bias_variable(self, shape):
     	initial = tf.constant(0.1, shape=shape)
-    	#initial = tf.truncated_normal(shape, stddev=0.1)
     	return tf.Variable(initial)
 
     def conv2d(self, x, W):
@@ -74,6 +73,19 @@ class Common:
             normed = tf.nn.batch_normalization(x, mean, var, beta, gamma, 1e-3)
         return normed
 
+    def restore(self):
+        saver = tf.train.Saver()
+
+        sess = tf.Session()
+        saver.restore(sess, "trained_model/%s/Drone_CNN.ckpt" % self.model_name)
+        print("Model restored.")
+        return sess
+
+class Common_label(Common):
+    def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
+        Common.__init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
+        self.y_ = tf.placeholder('float', shape=[None, 3])
+
     def train(self, epoch):
     	#os.makedirs('tb/%s' % self.model_name)
     	os.makedirs('trained_model/%s' % self.model_name)
@@ -108,7 +120,7 @@ class Common:
 
     	for i in range(0, epoch):
     		for j in range(0, steps):
-    			x_batch, y_batch = data.make_batch(conn, cur, 'training', self.batch_size)
+    			x_batch, y_batch, _ = data.make_batch(conn, cur, 'training', self.batch_size)
 
     			if j%10 == 0:
     				print('\nstep %d, epoch %d' % (k, i))
@@ -120,7 +132,7 @@ class Common:
 
     				for l in range(0, len(ngii_dir_test)):
     					dataset_test_name = ngii_dir_test[l][0]
-    					x_batch_test, y_batch_test = data.make_batch(conn, cur, 'test', self.batch_size)
+    					x_batch_test, y_batch_test, _ = data.make_batch(conn, cur, 'test', self.batch_size)
     					test_accuracy = sess.run(self.accuracy, feed_dict={self.x_image:x_batch_test, self.y_:y_batch_test, self.keep_prob: 1.0})
     					print('Test Accuracy:')
     					print(test_accuracy)
@@ -144,19 +156,11 @@ class Common:
     	#train_writer.close()
     	f_log.close()
 
-    def restore(self):
-        saver = tf.train.Saver()
-
-        sess = tf.Session()
-        saver.restore(sess, "trained_model/%s/Drone_CNN.ckpt" % self.model_name)
-        print("Model restored.")
-        return sess
-
     def create_test_patches(self):
         y_conv_argmax = tf.argmax(self.y_conv, 1)
         with self.restore() as sess:
             conn, cur = data.get_db_connection()
-            x_batch_test, y_batch_test = data.make_batch(conn, cur, 'test', 20)
+            x_batch_test, y_batch_test, _ = data.make_batch(conn, cur, 'test', 20)
             y_prediction, test_accuracy = sess.run([y_conv_argmax, self.accuracy], feed_dict={self.x_image:x_batch_test, self.y_:y_batch_test, self.keep_prob: 1.0})
 
             f, axarr = plt.subplots(2, 10)
@@ -176,7 +180,6 @@ class Common:
                 axarr[0, i].set_title(y_label) if i < 10 else axarr[1, i-10].set_title(y_label)
 
             plt.show()
-
 
     def drone_prediction(self):
         y_conv_argmax = tf.argmax(self.y_conv, 1)
@@ -224,10 +227,6 @@ class Common:
 
                     plt.show()
 
-class Common_label(Common):
-    def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
-        Common.__init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
-        self.y_ = tf.placeholder('float', shape=[None, 3])
 
 class Common_image(Common):
     def __init__(self, model_name, input_patch_size, output_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
