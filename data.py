@@ -129,23 +129,16 @@ def get_patch_num(dataset_name):
 def make_batch(conn, cur, purpose, batch_size):
 	patch_dir = get_patch_dir(conn, cur, purpose, batch_size)
 
-	x_batch_fnames = []
+	x_batch_image = []
 	y_batch_ohe = []
+	y_batch_image = []
 
 	for i in range(0, len(patch_dir)):
-		x_batch_fnames.append(patch_dir[i][0])
+		x_batch_image.append(cv2.imread(patch_dir[i][0]))
+		y_batch_image.append(cv2.imread(patch_dir[i][1]))
+		y_batch_ohe.append([patch_dir[i][2], patch_dir[i][3], patch_dir[i][4]])
 
-		building = patch_dir[i][2]
-		road = patch_dir[i][3]
-		otherwise = patch_dir[i][4]
-
-		y_batch_ohe.append([building, road, otherwise])
-
-	x_batch = []
-
-	for fname in x_batch_fnames:
-		x_batch.append(cv2.imread(fname))
-	return x_batch, y_batch_ohe
+	return x_batch, y_batch_ohe, y_batch_image
 
 def make_batch_drone(conn, cur, start_idx, batch_size):
 	patch_dir = get_drone_patch_dir(conn, cur, start_idx, batch_size)
