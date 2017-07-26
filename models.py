@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import data
 
-class Common_label:
+class Common:
     def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
         self.model_name = model_name
         self.input_patch_size = input_patch_size
@@ -15,7 +15,6 @@ class Common_label:
         self.batch_size = batch_size
 
         self.x_image = tf.placeholder('float', shape=[None, input_patch_size, input_patch_size, 3])
-        self.y_ = tf.placeholder('float', shape=[None, 3])
         self.phase_train = tf.Variable(True)
         self.lr = tf.placeholder(tf.float32)
         self.m = tf.placeholder(tf.float32)
@@ -225,7 +224,16 @@ class Common_label:
 
                     plt.show()
 
+class Common_label(Common):
+    def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
+        Common.__init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
+        self.y_ = tf.placeholder('float', shape=[None, 3])
 
+class Common_image(Common):
+    def __init__(self, model_name, input_patch_size, output_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
+        Common.__init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
+        self.output_patch_size = output_patch_size
+        y_ = tf.placeholder('float', shape=[None, output_patch_size, output_patch_size, 3])
 
 class VGG16_label(Common_label):
     def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
@@ -313,8 +321,6 @@ class VGG16_label(Common_label):
         self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_, logits=self.y_conv))
 
         self.train_step = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.cross_entropy)
-
-
 
 class Saito_label_bn(Common_label):
     def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):

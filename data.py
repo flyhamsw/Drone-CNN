@@ -145,10 +145,6 @@ def make_batch(conn, cur, purpose, batch_size):
 
 	for fname in x_batch_fnames:
 		x_batch.append(cv2.imread(fname))
-	print(len(x_batch))
-	print(len(x_batch[0]))
-	print(len(x_batch[0][0]))
-	print(len(x_batch[0][0][0]))
 	return x_batch, y_batch_ohe
 
 def make_batch_drone(conn, cur, start_idx, batch_size):
@@ -164,11 +160,6 @@ def make_batch_drone(conn, cur, start_idx, batch_size):
 	for fname in x_batch_fnames:
 		print(fname)
 		x_batch.append(cv2.imread(fname))
-
-	print(len(x_batch))
-	print(len(x_batch[0]))
-	print(len(x_batch[0][0]))
-	print(len(x_batch[0][0][0]))
 
 	return x_batch
 
@@ -212,3 +203,4 @@ def insert_drone_patch(name, x_data, num):
 
 if __name__=='__main__':
 	insert_ngii_dataset()
+	insert_drone_dataset()
