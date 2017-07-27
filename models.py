@@ -1,8 +1,9 @@
 import tensorflow as tf
 import os
-import numpy as np
 from matplotlib import pyplot as plt
 import data
+import cv2
+import numpy as np
 
 class Common:
     def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
@@ -181,100 +182,57 @@ class Common_label(Common):
 
             plt.show()
 
-    def pred_calc(self, x_batch_drone, interest_label, prob_list):
-
-
-        with self.restore() as sess:
-            for start_idx in range(0, end_idx, 20):
-                pred_result = sess.run(self.y_conv, feed_dict={self.x_image:x_batch_drone, self.keep_prob: 1.0})
-        if interest_label == 'Building':
-            interest_idx = 0
-        elif interest_label == "Road":
-            interest_idx = 1
-        elif interest_label == "Otherwise":
-            interest_idx = 2
-
-        #Append probability values of each patches into prob_list(Call-by-Reference)
-        for prob in pred_result:
-            prob_list.append(prob[interest_idx])
-
     def drone_prediction(self, interest_label):
         conn, cur = data.get_db_connection()
         drone_dir = data.get_drone_dir_all()
-
-        #for each drone ortho-images
-        for row in drone_dir:
-            curr_image = cv2.imread(row[1])
-            x_batch_drone = []
-            k = 0
-            prob_list = []
-
-            curr_image_h = len(curr_image)
-            curr_image_w = len(curr_image[0])
-
-            result_image_h = curr_image_h - curr_image_h%self.input_patch_size
-            result_image_w = curr_image_w - curr_image_w%self.input_patch_size
-
-            for i in range(0, result_image_h):
-                for j in range(0, result_image_w):
-                    k = k + 1
-                    patch = curr_image[i:i+self.input_patch_size-1, j:j+self.input_patch_size-1]
-                    x_batch_drone.append(patch)
-                    if k%self.batch_size==0:
-                        pred_calc(x_batch_drone, interest_label, prob_list)
-
-            result_image = []
-
-            for i in range(0, result_image_h):
-                image_row = prob_list[i*result_image_w:(i+1)*result_image_w]
-                result_image.append(image_row)
-
-
-    '''
-    def drone_prediction(self):
+        
         y_conv_argmax = tf.argmax(self.y_conv, 1)
-        conn, cur = data.get_db_connection()
-        drone_dir = data.get_drone_dir_all()
-
+        
         with self.restore() as sess:
-            for i in range(0, len(drone_dir)):
-                curr_dataset_name = drone_dir[i][0]
-                print('Current Dataset: %s' % curr_dataset_name)
-                end_idx = data.get_patch_num(curr_dataset_name)
+            #for each drone ortho-images
+            for row in drone_dir:
+                print('Current Dataset: %s' % row[0])
+                curr_image = cv2.imread(row[1])
+                
+                window_sliding_stride = 2
+                
+                x_batch_drone = []
+                
+                k = 0
+                prob_list = []
+    
+                curr_image_h = len(curr_image)
+                curr_image_w = len(curr_image[0])
+    
+                result_image_h = curr_image_h - curr_image_h%window_sliding_stride - self.input_patch_size
+                result_image_w = curr_image_w - curr_image_w%window_sliding_stride - self.input_patch_size
+                
+                print(result_image_h)
+                print(result_image_w)
+    
+                for i in range(0, result_image_h, window_sliding_stride):
+                    for j in range(0, result_image_w, window_sliding_stride):
+                        k = k + 1
+                        
+                        patch = np.array(curr_image[i:i+self.input_patch_size, j:j+self.input_patch_size])
+                        
+                        x_batch_drone.append(patch)
+                        
+                        if k%self.batch_size==0:
+                            pred_result = sess.run(y_conv_argmax, feed_dict={self.x_image:x_batch_drone, self.keep_prob: 1.0})
 
-                for start_idx in range(0, end_idx, 20):
-                    x_batch_drone = data.make_batch_drone(conn, cur, start_idx, 20)
-                    y_prediction = sess.run(y_conv_argmax, feed_dict={self.x_image:x_batch_drone, self.keep_prob: 1.0})
+                            for prob in pred_result:
+                                prob_list.append(prob)
+                            
+                            x_batch_drone = []
 
-                    for pred_result in y_prediction:
-                        if pred_result == 0:
-                            y_label = 'Building'
-                        elif pred_result== 1:
-                            y_label = 'Road'
-                        elif pred_result== 2:
-                            y_label = 'Otherwise'
-                        else:
-                            y_label = "???"
-                        print(y_label)
+                pred_result = sess.run(y_conv_argmax, feed_dict={self.x_image:x_batch_drone, self.keep_prob: 1.0})
+                for prob in pred_result:
+                    prob_list.append(prob)
+    
+                result = np.reshape(prob_list, (int(result_image_h/window_sliding_stride), int(result_image_w/window_sliding_stride)))
+                cv2.imwrite('result.png', result)
 
-                    f, axarr = plt.subplots(2, 10)
-
-                    f.suptitle('Prediction Result of %s Dataset' % curr_dataset_name)
-
-                    for i in range(0, 20):
-                        if y_prediction[i] == 0:
-                            y_label = 'Building'
-                        elif y_prediction[i] == 1:
-                            y_label = 'Road'
-                        elif y_prediction[i] == 2:
-                            y_label = 'Otherwise'
-                        else:
-                            y_label = "???"
-                        axarr[0, i].imshow(x_batch_drone[i]) if i < 10 else axarr[1, i-10].imshow(x_batch_drone[i])
-                        axarr[0, i].set_title(y_label) if i < 10 else axarr[1, i-10].set_title(y_label)
-
-                    plt.show()
-    '''
 
 class Common_image(Common):
     def __init__(self, model_name, input_patch_size, output_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
