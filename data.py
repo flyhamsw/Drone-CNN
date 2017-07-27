@@ -138,7 +138,7 @@ def make_batch(conn, cur, purpose, batch_size):
 		y_batch_image.append(cv2.imread(patch_dir[i][1]))
 		y_batch_ohe.append([patch_dir[i][2], patch_dir[i][3], patch_dir[i][4]])
 
-	return x_batch, y_batch_ohe, y_batch_image
+	return x_batch_image, y_batch_ohe, y_batch_image
 
 def make_batch_drone(conn, cur, start_idx, batch_size):
 	patch_dir = get_drone_patch_dir(conn, cur, start_idx, batch_size)
@@ -155,7 +155,6 @@ def make_batch_drone(conn, cur, start_idx, batch_size):
 		x_batch.append(cv2.imread(fname))
 
 	return x_batch
-
 
 def insert_patch(name, x_data, y_data, y_label):
 	conn, cur = get_db_connection()
