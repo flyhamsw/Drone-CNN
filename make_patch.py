@@ -48,7 +48,7 @@ for row in ngii_dir:
 					sum_ch_1 = np.sum(y_patch_0[:,:,1])
 					sum_ch_2 = np.sum(y_patch_0[:,:,2]) * 0.5
 
-					sum_ch_all = sum_ch_0 + sum_ch_1 + sum_ch_2 * 0.5
+					sum_ch_all = sum_ch_0 + sum_ch_1 + sum_ch_2
 
 					labeling_ratio_threshold = 0.7
 					ch_0_ratio = np.maximum(sum_ch_0 / sum_ch_all, labeling_ratio_threshold)
@@ -74,7 +74,7 @@ for row in ngii_dir:
 						for p in range(0, 4):
 							y_label.append(one_hot_enc)
 
-
+						
 						M = cv2.getRotationMatrix2D((y_patch_0.shape[1]/2, y_patch_0.shape[0]/2), 90, 1)
 						y_patch_90 = cv2.warpAffine(y_patch_0, M, (y_patch_0.shape[1], y_patch_0.shape[0]))
 						y_patch_180 = cv2.warpAffine(y_patch_90, M, (y_patch_0.shape[1], y_patch_0.shape[0]))

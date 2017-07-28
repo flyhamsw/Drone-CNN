@@ -207,9 +207,6 @@ class Common_label(Common):
                 result_image_h = curr_image_h - curr_image_h%window_sliding_stride - self.input_patch_size
                 result_image_w = curr_image_w - curr_image_w%window_sliding_stride - self.input_patch_size
                 
-                print(result_image_h)
-                print(result_image_w)
-    
                 for i in range(0, result_image_h, window_sliding_stride):
                     for j in range(0, result_image_w, window_sliding_stride):
                         k = k + 1
@@ -231,7 +228,8 @@ class Common_label(Common):
                     prob_list.append(prob)
     
                 result = np.reshape(prob_list, (int(result_image_h/window_sliding_stride), int(result_image_w/window_sliding_stride)))
-                cv2.imwrite('result.png', result)
+                cv2.imwrite('result_%s.png' % row[0], result)
+                print('Prediction Complete.')
 
 
 class Common_image(Common):
