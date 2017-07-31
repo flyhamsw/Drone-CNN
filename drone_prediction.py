@@ -6,5 +6,5 @@ model_list.append(models.Saito_label_bn('Saito_label_bn', 64, 0.0001, 0.1, 5000,
 
 for model in model_list:
 	print('============================================================\nCurrent Working Model: %s\n============================================================' % model.model_name)
-	model.drone_prediction('Building')
-	#model.drone_prediction()
+	model.drone_prediction('MOST_PROBABLE_CLASS')
+	model.drone_prediction('PROB_OF_INTEREST')

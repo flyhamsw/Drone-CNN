@@ -182,10 +182,11 @@ class Common_label(Common):
 
             plt.show()
 
-    def drone_prediction(self, interest_label):
+    def drone_prediction(self, mode, interest_label='Building'):
         conn, cur = data.get_db_connection()
         drone_dir = data.get_drone_dir_all()
         
+        y_conv_softmax= tf.nn.softmax(self.y_conv)
         y_conv_argmax = tf.argmax(self.y_conv, 1)
         
         with self.restore() as sess:
@@ -207,6 +208,7 @@ class Common_label(Common):
                 result_image_h = curr_image_h - curr_image_h%window_sliding_stride - self.input_patch_size
                 result_image_w = curr_image_w - curr_image_w%window_sliding_stride - self.input_patch_size
                 
+                #For each patch...
                 for i in range(0, result_image_h, window_sliding_stride):
                     for j in range(0, result_image_w, window_sliding_stride):
                         k = k + 1
@@ -215,22 +217,32 @@ class Common_label(Common):
                         
                         x_batch_drone.append(patch)
                         
+                        #Run tensorflow with 128 patches
                         if k%self.batch_size==0:
-                            pred_result = sess.run(y_conv_argmax, feed_dict={self.x_image:x_batch_drone, self.keep_prob: 1.0})
-
-                            for prob in pred_result:
-                                prob_list.append(prob)
-                            
+                            if mode == 'MOST_PROBABLE_CLASS':
+                                pred_result = sess.run(y_conv_argmax, feed_dict={self.x_image:x_batch_drone, self.keep_prob: 1.0})
+                                for prob in pred_result:
+                                    prob_list.append(prob)
+                            elif mode == 'PROB_OF_INTEREST':
+                                if interest_label == 'Building':
+                                    interest_ch = 0
+                                elif interest_label == 'Road':
+                                    interest_ch = 1
+                                elif interest_label == 'Otherwise':
+                                    interest_ch = 2
+                                pred_result = sess.run(y_conv_softmax, feed_dict={self.x_image:x_batch_drone, self.keep_prob: 1.0})
+                                for prob in pred_result:
+                                    prob_list.append(prob[interest_ch])
+                                    
                             x_batch_drone = []
 
-                pred_result = sess.run(y_conv_argmax, feed_dict={self.x_image:x_batch_drone, self.keep_prob: 1.0})
-                for prob in pred_result:
-                    prob_list.append(prob)
-    
                 result = np.reshape(prob_list, (int(result_image_h/window_sliding_stride), int(result_image_w/window_sliding_stride)))
-                cv2.imwrite('result_%s.png' % row[0], result)
+                
+                if mode == 'PROB_OF_INTEREST':
+                    result = cv2.resize(result, (len(curr_image), len(curr_image[0])), interpolation=cv2.INTER_LINEAR)
+                    
+                cv2.imwrite('result_%s_%s.png' % (row[0], interest_label), result)
                 print('Prediction Complete.')
-
 
 class Common_image(Common):
     def __init__(self, model_name, input_patch_size, output_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
