@@ -88,13 +88,13 @@ class Common_label(Common):
         self.y_ = tf.placeholder('float', shape=[None, 3])
 
     def train(self, epoch):
-    	#os.makedirs('tb/%s' % self.model_name)
+    	os.makedirs('tb/%s' % self.model_name)
     	os.makedirs('trained_model/%s' % self.model_name)
 
-    	#tf.summary.image('input x_image', self.x_image)
-    	#tf.summary.scalar('train_accuracy', self.accuracy)
-    	#tf.summary.scalar('cross_entropy', self.cross_entropy)
-    	#tf.summary.scalar('learning rate', self.lr)
+    	tf.summary.image('input x_image', self.x_image)
+    	tf.summary.scalar('train_accuracy', self.accuracy)
+    	tf.summary.scalar('cross_entropy', self.cross_entropy)
+    	tf.summary.scalar('learning rate', self.lr)
 
     	sess = tf.Session()
 
@@ -105,8 +105,8 @@ class Common_label(Common):
 
     	f_log = open('trained_model/%s/log.csv' % self.model_name, 'w')
 
-    	#merged = tf.summary.merge_all()
-    	#train_writer = tf.summary.FileWriter('/home/lsmjn/tensorOrtho_TY/tb/%s' % self.model_name, sess.graph)
+    	merged = tf.summary.merge_all()
+    	train_writer = tf.summary.FileWriter('/home/lsmjn/Drone-CNN/tb/%s' % self.model_name, sess.graph)
 
     	ngii_dir_training = data.get_ngii_dir('training')
     	ngii_dir_test = data.get_ngii_dir('test')
@@ -138,15 +138,15 @@ class Common_label(Common):
     					print('Test Accuracy:')
     					print(test_accuracy)
 
-    				f_log.write('%d,%f,%f,%f\n' % (j, train_xe, train_accuracy, test_accuracy))
+    				f_log.write('%d,%d,%f,%f,%f\n' % (epoch, k, train_xe, train_accuracy, test_accuracy))
     			if j%self.lr_decay_freq == 0:
     				self.lr_value = self.lr_value * 0.1
     				print('Learning rate:')
     				print(self.lr_value)
 
-    			#summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
-    			sess.run(self.train_step, feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
-    			#train_writer.add_summary(summary, k)
+    			summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
+    			#sess.run(self.train_step, feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
+    			train_writer.add_summary(summary, k)
     			k = k + 1
 
     	cur.close()
@@ -198,6 +198,144 @@ class Common_label(Common):
             for prob in pred_result:
                 prob_list.append(prob[interest_ch])
         
+
+    def drone_prediction(self, mode, window_sliding_stride=8, interest_label='Building'):
+        conn, cur = data.get_db_connection()
+        drone_dir = data.get_drone_dir_all()
+        
+        y_conv_argmax = tf.argmax(self.y_conv, 1)
+        y_conv_softmax= tf.nn.softmax(self.y_conv)
+        
+        with self.restore() as sess:
+            #for each drone ortho-images
+            for row in drone_dir:
+                print('Current Dataset: %s (%s)' % (row[0], mode))
+                curr_image = cv2.imread(row[1])
+                
+                x_batch_drone = []
+                
+                k = 0
+                prob_list = []
+    
+                curr_image_h = len(curr_image)
+                curr_image_w = len(curr_image[0])
+    
+                result_image_h = curr_image_h - curr_image_h%window_sliding_stride - self.input_patch_size
+                result_image_w = curr_image_w - curr_image_w%window_sliding_stride - self.input_patch_size
+                
+                #For each patch...
+                for i in range(0, result_image_h, window_sliding_stride):
+                    for j in range(0, result_image_w, window_sliding_stride):
+                        k = k + 1
+                        
+                        patch = np.array(curr_image[i:i+self.input_patch_size, j:j+self.input_patch_size])
+                        
+                        x_batch_drone.append(patch)
+                        
+                        #Run tensorflow with 128 patches
+                        if k%self.batch_size==0:
+                            self.run_prediction(sess, x_batch_drone, y_conv_argmax, y_conv_softmax, mode, interest_label, prob_list)
+                            x_batch_drone = []
+                
+                #Run prediction for rest of data
+                self.run_prediction(sess, x_batch_drone, y_conv_argmax, y_conv_softmax, mode, interest_label, prob_list)
+                
+                result = np.reshape(prob_list, (int(result_image_h/window_sliding_stride), int(result_image_w/window_sliding_stride)))
+                
+                if mode == 'PROB_OF_INTEREST':
+                    result = cv2.resize(result, (len(curr_image[0]), len(curr_image)), interpolation=cv2.INTER_LINEAR) * 255 
+                    
+                cv2.imwrite('result_%s_%s.png' % (row[0], mode), result)
+                print('Prediction Complete.')
+
+class Common_single_label(Common):
+    def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
+        Common.__init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
+        self.y_ = tf.placeholder('float', shape=[None, 2])
+
+    def train(self, epoch):
+        os.makedirs('tb/%s' % self.model_name)
+        os.makedirs('trained_model/%s' % self.model_name)
+
+        tf.summary.image('input x_image', self.x_image)
+        tf.summary.scalar('train_accuracy', self.accuracy)
+        tf.summary.scalar('cross_entropy', self.cross_entropy)
+        tf.summary.scalar('learning rate', self.lr)
+
+        sess = tf.Session()
+
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
+
+        saver = tf.train.Saver()
+
+        f_log = open('trained_model/%s/log.csv' % self.model_name, 'w')
+
+        merged = tf.summary.merge_all()
+        train_writer = tf.summary.FileWriter('/home/lsmjn/Drone-CNN/tb/%s' % self.model_name, sess.graph)
+
+        ngii_dir_training = data.get_ngii_dir('training')
+        ngii_dir_test = data.get_ngii_dir('test')
+
+        conn, cur = data.get_db_connection()
+
+        steps = data.get_steps(self.batch_size)
+
+        k = 0
+
+        print('\nCurrent Model: %s' % self.model_name)
+
+        for i in range(0, epoch):
+            for j in range(0, steps):
+                x_batch, y_batch, _ = data.make_batch(conn, cur, 'training', self.batch_size, 'Building')
+
+                if j%10 == 0:
+                    print('\nstep %d, epoch %d' % (k, i))
+                    train_xe, train_accuracy = sess.run([self.cross_entropy, self.accuracy], feed_dict={self.x_image:x_batch, self.y_:y_batch, self.keep_prob: 1.0})
+                    print('Train XE:')
+                    print(train_xe)
+                    print('Train Accuracy:')
+                    print(train_accuracy)
+
+                    for l in range(0, len(ngii_dir_test)):
+                        dataset_test_name = ngii_dir_test[l][0]
+                        x_batch_test, y_batch_test, _ = data.make_batch(conn, cur, 'test', self.batch_size, 'Building')
+                        test_accuracy = sess.run(self.accuracy, feed_dict={self.x_image:x_batch_test, self.y_:y_batch_test, self.keep_prob: 1.0})
+                        print('Test Accuracy:')
+                        print(test_accuracy)
+
+                    f_log.write('%d,%d,%f,%f,%f\n' % (epoch, k, train_xe, train_accuracy, test_accuracy))
+                if j%self.lr_decay_freq == 0:
+                    self.lr_value = self.lr_value * 0.1
+                    print('Learning rate:')
+                    print(self.lr_value)
+
+                summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
+                #sess.run(self.train_step, feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
+                train_writer.add_summary(summary, k)
+                k = k + 1
+
+        cur.close()
+        conn.close()
+
+        save_path = saver.save(sess, "trained_model/%s/Drone_CNN.ckpt" % self.model_name)
+        print('Model saved in file: %s' % save_path)
+        #train_writer.close()
+        f_log.close()
+
+    def run_prediction(self, sess, x_batch_drone, y_conv_argmax, y_conv_softmax, mode, interest_label, prob_list):
+        if mode == 'MOST_PROBABLE_CLASS':
+            pred_result = sess.run(y_conv_argmax, feed_dict={self.x_image:x_batch_drone, self.keep_prob: 1.0})
+            for prob in pred_result:
+                prob_list.append(prob)
+        elif mode == 'PROB_OF_INTEREST':
+            if interest_label == 'Building':
+                interest_ch = 0
+            else:
+                interest_ch = 1
+            pred_result = sess.run(y_conv_softmax, feed_dict={self.x_image:x_batch_drone, self.keep_prob: 1.0})
+            for prob in pred_result:
+                prob_list.append(prob[interest_ch])
 
     def drone_prediction(self, mode, window_sliding_stride=8, interest_label='Building'):
         conn, cur = data.get_db_connection()
@@ -525,3 +663,48 @@ class Saito_label_bn(Common_label):
         self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_, logits=self.y_conv))
 
         self.train_step = tf.train.MomentumOptimizer(learning_rate=self.lr, momentum=self.m).minimize(self.cross_entropy)
+
+class Saito_single_label_bn(Common_single_label):
+    def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
+        Common_single_label.__init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
+        self.output_patch_size = int(input_patch_size / 2)
+
+        #C(64, 9*9/2)
+        self.W_conv1 = self.weight_variable([16, 16, 3, 64], 678678678)
+        self.b_conv1 = self.bias_variable([64])
+        self.h_conv1 = tf.nn.relu(self.batch_norm(self.conv2d_stride(self.x_image, self.W_conv1) + self.b_conv1, 64, self.phase_train))
+
+        #P(2/1)
+        self.h_pool1 = self.max_pool_2x2(self.h_conv1)
+
+        #C(128, 7*7/1)
+        self.W_conv2 = self.weight_variable([4, 4, 64, 112], 12312323)
+        self.b_conv2 = self.bias_variable([112])
+        self.h_conv2 = tf.nn.relu(self.batch_norm(self.conv2d(self.h_pool1, self.W_conv2) + self.b_conv2, 112, self.phase_train))
+
+        #C(128, 5*5/1)
+        self.W_conv3 = self.weight_variable( [3, 3, 112, 80], 234234234)
+        self.b_conv3 = self.bias_variable([80])
+        self.h_conv3 = tf.nn.relu(self.batch_norm(self.conv2d(self.h_conv2, self.W_conv3) + self.b_conv3, 80, self.phase_train))
+
+        #FC(4096)
+        self.W_fc1 = self.weight_variable([self.output_patch_size*self.output_patch_size*80,4096], 345345345)
+        self.b_fc1 = self.bias_variable([4096])
+        self.h_conv3_flat = tf.reshape(self.h_conv3, [-1, self.output_patch_size*self.output_patch_size*80])
+        self.h_fc1 = tf.nn.relu(tf.matmul(self.h_conv3_flat, self.W_fc1) + self.b_fc1)
+        self.h_fc1_drop = tf.nn.dropout(self.h_fc1, self.keep_prob)
+
+        #FC(768)
+        self.W_fc2 = self.weight_variable([4096, 2], 45456)
+        self.b_fc2 = self.bias_variable([2])
+        self.h_fc2 = tf.matmul(self.h_fc1, self.W_fc2) + self.b_fc2
+        self.h_fc2_drop = tf.nn.dropout(self.h_fc2, self.keep_prob)
+
+        self.y_conv = tf.reshape(self.h_fc2_drop, [-1, 2])
+
+        self.correct_prediction = tf.equal(tf.argmax(self.y_conv, 1), tf.argmax(self.y_, 1))
+        self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, tf.float32))
+
+        self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_, logits=self.y_conv))
+
+        self.train_step = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.cross_entropy)
