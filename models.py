@@ -123,7 +123,7 @@ class Common_label(Common):
     		for j in range(0, steps):
     			x_batch, y_batch, _ = data.make_batch(conn, cur, 'training', self.batch_size)
 
-    			if j%10 == 0:
+    			if k%10 == 0:
     				print('\nstep %d, epoch %d' % (k, i))
     				train_xe, train_accuracy = sess.run([self.cross_entropy, self.accuracy], feed_dict={self.x_image:x_batch, self.y_:y_batch, self.keep_prob: 1.0})
     				print('Train XE:')
@@ -138,8 +138,8 @@ class Common_label(Common):
     					print('Test Accuracy:')
     					print(test_accuracy)
 
-    				f_log.write('%d,%d,%f,%f,%f\n' % (epoch, k, train_xe, train_accuracy, test_accuracy))
-    			if j%self.lr_decay_freq == 0:
+    				f_log.write('%d,%d,%f,%f,%f\n' % (i, k, train_xe, train_accuracy, test_accuracy))
+    			if k%self.lr_decay_freq == 0:
     				self.lr_value = self.lr_value * 0.1
     				print('Learning rate:')
     				print(self.lr_value)
@@ -289,7 +289,7 @@ class Common_single_label(Common):
             for j in range(0, steps):
                 x_batch, y_batch, _ = data.make_batch(conn, cur, 'training', self.batch_size, 'Building')
 
-                if j%10 == 0:
+                if k%10 == 0:
                     print('\nstep %d, epoch %d' % (k, i))
                     train_xe, train_accuracy = sess.run([self.cross_entropy, self.accuracy], feed_dict={self.x_image:x_batch, self.y_:y_batch, self.keep_prob: 1.0})
                     print('Train XE:')
@@ -304,8 +304,8 @@ class Common_single_label(Common):
                         print('Test Accuracy:')
                         print(test_accuracy)
 
-                    f_log.write('%d,%d,%f,%f,%f\n' % (epoch, k, train_xe, train_accuracy, test_accuracy))
-                if j%self.lr_decay_freq == 0:
+                    f_log.write('%d,%d,%f,%f,%f\n' % (i, k, train_xe, train_accuracy, test_accuracy))
+                if k%self.lr_decay_freq == 0:
                     self.lr_value = self.lr_value * 0.1
                     print('Learning rate:')
                     print(self.lr_value)
@@ -392,13 +392,13 @@ class Common_image(Common):
         self.output_patch_size = output_patch_size
         y_ = tf.placeholder('float', shape=[None, output_patch_size, output_patch_size, 3])
     def train(self, epoch):
-    	#os.makedirs('tb/%s' % self.model_name)
+    	os.makedirs('tb/%s' % self.model_name)
     	os.makedirs('trained_model/%s' % self.model_name)
 
-    	#tf.summary.image('input x_image', self.x_image)
-    	#tf.summary.scalar('train_accuracy', self.accuracy)
-    	#tf.summary.scalar('cross_entropy', self.cross_entropy)
-    	#tf.summary.scalar('learning rate', self.lr)
+    	tf.summary.image('input x_image', self.x_image)
+    	tf.summary.scalar('train_accuracy', self.accuracy)
+    	tf.summary.scalar('cross_entropy', self.cross_entropy)
+    	tf.summary.scalar('learning rate', self.lr)
 
     	sess = tf.Session()
 
@@ -409,8 +409,8 @@ class Common_image(Common):
 
     	f_log = open('trained_model/%s/log.csv' % self.model_name, 'w')
 
-    	#merged = tf.summary.merge_all()
-    	#train_writer = tf.summary.FileWriter('/home/lsmjn/tensorOrtho_TY/tb/%s' % self.model_name, sess.graph)
+    	merged = tf.summary.merge_all()
+    	train_writer = tf.summary.FileWriter('/home/lsmjn/tensorOrtho_TY/tb/%s' % self.model_name, sess.graph)
 
     	ngii_dir_training = data.get_ngii_dir('training')
     	ngii_dir_test = data.get_ngii_dir('test')
@@ -427,7 +427,7 @@ class Common_image(Common):
     		for j in range(0, steps):
     			x_batch, _, y_batch = data.make_batch(conn, cur, 'training', self.batch_size)
 
-    			if j%10 == 0:
+    			if k%10 == 0:
     				print('\nstep %d, epoch %d' % (k, i))
     				train_xe, train_accuracy = sess.run([self.cross_entropy, self.accuracy], feed_dict={self.x_image:x_batch, self.y_:y_batch, self.keep_prob: 1.0})
     				print('Train XE:')
@@ -442,15 +442,15 @@ class Common_image(Common):
     					print('Test Accuracy:')
     					print(test_accuracy)
 
-    				f_log.write('%d,%f,%f,%f\n' % (j, train_xe, train_accuracy, test_accuracy))
-    			if j%self.lr_decay_freq == 0:
+    				f_log.write('%d,%d,%f,%f,%f\n' % (i, k, train_xe, train_accuracy, test_accuracy))
+    			if k%self.lr_decay_freq == 0:
     				self.lr_value = self.lr_value * 0.1
     				print('Learning rate:')
     				print(self.lr_value)
 
-    			#summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
-    			sess.run(self.train_step, feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
-    			#train_writer.add_summary(summary, k)
+    			summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
+    			#sess.run(self.train_step, feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
+    			train_writer.add_summary(summary, k)
     			k = k + 1
 
     	cur.close()
@@ -458,7 +458,7 @@ class Common_image(Common):
 
     	save_path = saver.save(sess, "trained_model/%s/Drone_CNN.ckpt" % self.model_name)
     	print('Model saved in file: %s' % save_path)
-    	#train_writer.close()
+    	train_writer.close()
     	f_log.close()
 
     def create_test_patches(self):
