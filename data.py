@@ -135,15 +135,17 @@ def make_batch(conn, cur, purpose, batch_size, y_batch_interest=None):
 
 	for i in range(0, len(patch_dir)):
 		x_batch_image.append(cv2.imread(patch_dir[i][0]))
-		y_batch_image.append(cv2.imread(patch_dir[i][1]))
 		
 		if y_batch_interest == 'Building':
 			if patch_dir[i][2] == 1:
 				y_batch_ohe.append([1, 0])
 			else:
 				y_batch_ohe.append([0, 1])
+			
 		else:
 			y_batch_ohe.append([patch_dir[i][2], patch_dir[i][3], patch_dir[i][4]])
+			im = cv2.imread(patch_dir[i][1]) / 225
+			y_batch_image.append(im)
 
 	return x_batch_image, y_batch_ohe, y_batch_image
 

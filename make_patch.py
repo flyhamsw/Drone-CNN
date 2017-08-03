@@ -7,7 +7,7 @@ ngii_dir = data.get_ngii_dir_all()
 
 patches_dir = 'patches'
 
-patch_size = 64
+patch_size = 80
 
 patch_stride = patch_size
 
@@ -81,12 +81,19 @@ for row in ngii_dir:
 						y_patch_270 = cv2.warpAffine(y_patch_180, M, (y_patch_0.shape[1], y_patch_0.shape[0]))
 
 						yname0 = '%s/NGII_Data_%s_%s_y_0_%s.png' % (ypath, i, j, one_hot_enc)
+						y_patch_0 = cv2.resize(y_patch_0, (40, 40), interpolation=cv2.INTER_AREA) * 225
 						cv2.imwrite(yname0, y_patch_0)
+						
 						yname90 = '%s/NGII_Data_%s_%s_y_90_%s.png' % (ypath, i, j, one_hot_enc)
+						y_patch_90 = cv2.resize(y_patch_90, (40, 40), interpolation=cv2.INTER_AREA) * 225
 						cv2.imwrite(yname90, y_patch_90)
+						
 						yname180 = '%s/NGII_Data_%s_%s_y_180_%s.png' % (ypath, i, j, one_hot_enc)
+						y_patch_180 = cv2.resize(y_patch_180, (40, 40), interpolation=cv2.INTER_AREA) * 225
 						cv2.imwrite(yname180, y_patch_180)
+						
 						yname270 = '%s/NGII_Data_%s_%s_y_270_%s.png' % (ypath, i, j, one_hot_enc)
+						y_patch_270 = cv2.resize(y_patch_270, (40, 40), interpolation=cv2.INTER_AREA) * 225
 						cv2.imwrite(yname270, y_patch_270)
 
 						y_data.append(yname0)
