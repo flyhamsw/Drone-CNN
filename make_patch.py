@@ -7,12 +7,12 @@ ngii_dir = data.get_ngii_dir_all()
 
 patches_dir = 'patches'
 
-patch_size = 80
+patch_size = 64
 
 patch_stride = patch_size
 
 dfs_option = True
-resize_option = True
+resize_option = False
 
 for row in ngii_dir:
 	name = []
@@ -20,8 +20,9 @@ for row in ngii_dir:
 	x_dir = row[1]
 	y_dir = row[2]
 
-	x = np.array(cv2.imread(x_dir))
-	y = np.array(cv2.imread(y_dir))
+	#half scale
+	x = np.array(cv2.resize(cv2.imread(x_dir), None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA))
+	y = np.array(cv2.resize(cv2.imread(y_dir), None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA))
 
 	xpath = '%s/%s/x' % (patches_dir, curr_dataset_name)
 	ypath = '%s/%s/y' % (patches_dir, curr_dataset_name)
@@ -85,7 +86,7 @@ for row in ngii_dir:
 						yname180 = '%s/NGII_Data_%s_%s_y_180_%s.png' % (ypath, i, j, one_hot_enc)
 						yname270 = '%s/NGII_Data_%s_%s_y_270_%s.png' % (ypath, i, j, one_hot_enc)
 
-						if resize_option = True:
+						if resize_option == True:
 							y_patch_0 = cv2.resize(y_patch_0, (40, 40), interpolation=cv2.INTER_AREA) * 225
 							y_patch_90 = cv2.resize(y_patch_90, (40, 40), interpolation=cv2.INTER_AREA) * 225
 							y_patch_180 = cv2.resize(y_patch_180, (40, 40), interpolation=cv2.INTER_AREA) * 225

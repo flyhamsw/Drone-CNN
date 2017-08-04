@@ -84,6 +84,16 @@ def get_patch_dir(conn, cur, purpose, batch_size):
 	patch_dir = cur.fetchall()
 	return patch_dir
 
+def get_patch_dir_building(conn, cur, purpose, batch_size):
+	cur.execute("select patch_dir.x_dir, patch_dir.y_dir, patch_dir.building, patch_dir.road, patch_dir.otherwise from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where ngii_dir.purpose='%s' and patch_dir.building=1 order by RANDOM() LIMIT %d;" % (purpose, int(batch_size/2)))
+	patch_dir = cur.fetchall()
+	return patch_dir
+
+def get_patch_dir_no_building(conn, cur, purpose, batch_size):
+	cur.execute("select patch_dir.x_dir, patch_dir.y_dir, patch_dir.building, patch_dir.road, patch_dir.otherwise from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where ngii_dir.purpose='%s' and patch_dir.building=0 order by RANDOM() LIMIT %d;" % (purpose, int(batch_size/2)))
+	patch_dir = cur.fetchall()
+	return patch_dir
+
 def get_drone_patch_dir(conn, cur, start_idx, batch_size):
 	cur.execute("select x_dir from drone_patch_dir where num between %d and %d" % (start_idx, start_idx + batch_size - 1))
 	drone_patch_dir = cur.fetchall()
@@ -127,6 +137,18 @@ def get_patch_num(dataset_name):
 	return num[0][0]
 
 def make_batch(conn, cur, purpose, batch_size, y_batch_interest=None):
+	patch_dir = []
+	'''
+	if y_batch_interest == 'Building':
+		patch_dir_building = get_patch_dir_building(conn, cur, purpose, batch_size)
+		patch_dir_no_building = get_patch_dir_no_building(conn, cur, purpose, batch_size)
+		for row in patch_dir_building:
+			patch_dir.append(row)
+		for row in patch_dir_no_building:
+			patch_dir.append(row)
+	else:
+		patch_dir = get_patch_dir(conn, cur, purpose, batch_size)
+	'''
 	patch_dir = get_patch_dir(conn, cur, purpose, batch_size)
 
 	x_batch_image = []
@@ -135,13 +157,11 @@ def make_batch(conn, cur, purpose, batch_size, y_batch_interest=None):
 
 	for i in range(0, len(patch_dir)):
 		x_batch_image.append(cv2.imread(patch_dir[i][0]))
-		
 		if y_batch_interest == 'Building':
 			if patch_dir[i][2] == 1:
 				y_batch_ohe.append([1, 0])
 			else:
 				y_batch_ohe.append([0, 1])
-			
 		else:
 			y_batch_ohe.append([patch_dir[i][2], patch_dir[i][3], patch_dir[i][4]])
 			im = cv2.imread(patch_dir[i][1]) / 225
