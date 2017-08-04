@@ -36,7 +36,7 @@ class Common:
 
 	def conv2d_stride(self, x, W):
 		return tf.nn.conv2d(x, W, strides=[1, 2, 2, 1], padding='SAME')
-	
+
 	def conv2d_stride4(self, x, W):
 		   return tf.nn.conv2d(x, W, strides=[1, 4, 4, 1], padding='SAME')
 
@@ -200,54 +200,54 @@ class Common_label(Common):
 			pred_result = sess.run(y_conv_softmax, feed_dict={self.x_image:x_batch_drone, self.keep_prob: 1.0})
 			for prob in pred_result:
 				prob_list.append(prob[interest_ch])
-		
+
 
 	def drone_prediction(self, mode, window_sliding_stride=8, interest_label='Building'):
 		conn, cur = data.get_db_connection()
 		drone_dir = data.get_drone_dir_all()
-		
+
 		y_conv_argmax = tf.argmax(self.y_conv, 1)
 		y_conv_softmax= tf.nn.softmax(self.y_conv)
-		
+
 		with self.restore() as sess:
 			#for each drone ortho-images
 			for row in drone_dir:
 				print('Current Dataset: %s (%s)' % (row[0], mode))
 				curr_image = cv2.imread(row[1])
-				
+
 				x_batch_drone = []
-				
+
 				k = 0
 				prob_list = []
-	
+
 				curr_image_h = len(curr_image)
 				curr_image_w = len(curr_image[0])
-	
+
 				result_image_h = curr_image_h - curr_image_h%window_sliding_stride - self.input_patch_size
 				result_image_w = curr_image_w - curr_image_w%window_sliding_stride - self.input_patch_size
-				
+
 				#For each patch...
 				for i in range(0, result_image_h, window_sliding_stride):
 					for j in range(0, result_image_w, window_sliding_stride):
 						k = k + 1
-						
+
 						patch = np.array(curr_image[i:i+self.input_patch_size, j:j+self.input_patch_size])
-						
+
 						x_batch_drone.append(patch)
-						
+
 						#Run tensorflow with 128 patches
 						if k%self.batch_size==0:
 							self.run_prediction(sess, x_batch_drone, y_conv_argmax, y_conv_softmax, mode, interest_label, prob_list)
 							x_batch_drone = []
-				
+
 				#Run prediction for rest of data
 				self.run_prediction(sess, x_batch_drone, y_conv_argmax, y_conv_softmax, mode, interest_label, prob_list)
-				
+
 				result = np.reshape(prob_list, (int(result_image_h/window_sliding_stride), int(result_image_w/window_sliding_stride)))
-				
+
 				if mode == 'PROB_OF_INTEREST':
-					result = cv2.resize(result, (len(curr_image[0]), len(curr_image)), interpolation=cv2.INTER_LINEAR) * 255 
-					
+					result = cv2.resize(result, (len(curr_image[0]), len(curr_image)), interpolation=cv2.INTER_LINEAR) * 255
+
 				cv2.imwrite('result_%s_%s.png' % (row[0], mode), result)
 				print('Prediction Complete.')
 
@@ -343,49 +343,49 @@ class Common_single_label(Common):
 	def drone_prediction(self, mode, window_sliding_stride=8, interest_label='Building'):
 		conn, cur = data.get_db_connection()
 		drone_dir = data.get_drone_dir_all()
-		
+
 		y_conv_argmax = tf.argmax(self.y_conv, 1)
 		y_conv_softmax= tf.nn.softmax(self.y_conv)
-		
+
 		with self.restore() as sess:
 			#for each drone ortho-images
 			for row in drone_dir:
 				print('Current Dataset: %s (%s)' % (row[0], mode))
 				curr_image = cv2.imread(row[1])
-				
+
 				x_batch_drone = []
-				
+
 				k = 0
 				prob_list = []
-	
+
 				curr_image_h = len(curr_image)
 				curr_image_w = len(curr_image[0])
-	
+
 				result_image_h = curr_image_h - curr_image_h%window_sliding_stride - self.input_patch_size
 				result_image_w = curr_image_w - curr_image_w%window_sliding_stride - self.input_patch_size
-				
+
 				#For each patch...
 				for i in range(0, result_image_h, window_sliding_stride):
 					for j in range(0, result_image_w, window_sliding_stride):
 						k = k + 1
-						
+
 						patch = np.array(curr_image[i:i+self.input_patch_size, j:j+self.input_patch_size])
-						
+
 						x_batch_drone.append(patch)
-						
+
 						#Run tensorflow with 128 patches
 						if k%self.batch_size==0:
 							self.run_prediction(sess, x_batch_drone, y_conv_argmax, y_conv_softmax, mode, interest_label, prob_list)
 							x_batch_drone = []
-				
+
 				#Run prediction for rest of data
 				self.run_prediction(sess, x_batch_drone, y_conv_argmax, y_conv_softmax, mode, interest_label, prob_list)
-				
+
 				result = np.reshape(prob_list, (int(result_image_h/window_sliding_stride), int(result_image_w/window_sliding_stride)))
-				
+
 				if mode == 'PROB_OF_INTEREST':
-					result = cv2.resize(result, (len(curr_image[0]), len(curr_image)), interpolation=cv2.INTER_LINEAR) * 255 
-					
+					result = cv2.resize(result, (len(curr_image[0]), len(curr_image)), interpolation=cv2.INTER_LINEAR) * 255
+
 				cv2.imwrite('result_%s_%s.png' % (row[0], mode), result)
 				print('Prediction Complete.')
 
@@ -394,14 +394,15 @@ class Common_image(Common):
 		Common.__init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
 		self.output_patch_size = output_patch_size
 		self.y_ = tf.placeholder('float', shape=[None, output_patch_size, output_patch_size, 3])
-	
+
 	def train(self, epoch):
 		os.makedirs('tb/%s' % self.model_name)
 		os.makedirs('trained_model/%s' % self.model_name)
-		
+
 		tf.summary.image('input x_image', self.x_image)
 		tf.summary.image('y_ground_truth', self.y_)
 		tf.summary.image('y_prediction', self.y_conv)
+		tf.summary.image('y_pred_softmax', self.y_soft)
 		tf.summary.scalar('cross_entropy', self.cross_entropy)
 		tf.summary.scalar('learning rate', self.lr)
 
@@ -413,7 +414,7 @@ class Common_image(Common):
 		saver = tf.train.Saver()
 
 		f_log = open('trained_model/%s/log.csv' % self.model_name, 'w')
-		
+
 		merged = tf.summary.merge_all()
 		train_writer = tf.summary.FileWriter('/home/lsmjn/Drone-CNN/tb/%s' % self.model_name, sess.graph)
 
@@ -437,9 +438,9 @@ class Common_image(Common):
 					train_xe = sess.run(self.cross_entropy, feed_dict={self.x_image:x_batch, self.y_:y_batch, self.keep_prob: 1.0})
 					print('Train XE:')
 					print(train_xe)
-					
+
 					f_log.write('%d,%d,%f\n' % (i, k, train_xe))
-					
+
 				if k%self.lr_decay_freq == 0:
 					self.lr_value = self.lr_value * 0.1
 					print('Learning rate:')
@@ -697,6 +698,7 @@ class Saito_image_bn(Common_image):
 		self.h_fc2_drop = tf.nn.dropout(self.h_fc2, self.keep_prob)
 
 		self.y_conv = tf.reshape(self.h_fc2_drop, [-1, 40, 40, 3])
+		self.y_soft = tf.nn.softmax(self.y_conv)
 
 		self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_, logits=self.y_conv))
 
@@ -739,6 +741,7 @@ class Saito_single_label_bn(Common_single_label):
 		self.h_fc2_drop = tf.nn.dropout(self.h_fc2, self.keep_prob)
 
 		self.y_conv = tf.reshape(self.h_fc2_drop, [-1, 2])
+
 
 		self.correct_prediction = tf.equal(tf.argmax(self.y_conv, 1), tf.argmax(self.y_, 1))
 		self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, tf.float32))

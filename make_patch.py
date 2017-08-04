@@ -11,6 +11,9 @@ patch_size = 80
 
 patch_stride = patch_size
 
+dfs_option = True
+resize_option = True
+
 for row in ngii_dir:
 	name = []
 	curr_dataset_name = row[0]
@@ -57,7 +60,7 @@ for row in ngii_dir:
 
 					one_hot_element = np.argmax([ch_0_ratio, ch_1_ratio, ch_2_ratio])
 
-					if ch_0_ratio == labeling_ratio_threshold and ch_1_ratio == labeling_ratio_threshold and ch_2_ratio == labeling_ratio_threshold:
+					if dfs_option == True and ch_0_ratio == labeling_ratio_threshold and ch_1_ratio == labeling_ratio_threshold and ch_2_ratio == labeling_ratio_threshold:
 						print('Not enough to label. ch_0_ratio: %f, ch_0_ratio: %f, ch_0_ratio: %f' % (sum_ch_0 / sum_ch_all, sum_ch_1 / sum_ch_all, sum_ch_2 / sum_ch_all))
 					else:
 						if one_hot_element == 0:
@@ -69,31 +72,28 @@ for row in ngii_dir:
 						else:
 							one_hot_enc = 'otherwise'
 
-						#if one_hot_enc != 'otherwise':
-
 						for p in range(0, 4):
 							y_label.append(one_hot_enc)
 
-						
 						M = cv2.getRotationMatrix2D((y_patch_0.shape[1]/2, y_patch_0.shape[0]/2), 90, 1)
 						y_patch_90 = cv2.warpAffine(y_patch_0, M, (y_patch_0.shape[1], y_patch_0.shape[0]))
 						y_patch_180 = cv2.warpAffine(y_patch_90, M, (y_patch_0.shape[1], y_patch_0.shape[0]))
 						y_patch_270 = cv2.warpAffine(y_patch_180, M, (y_patch_0.shape[1], y_patch_0.shape[0]))
 
 						yname0 = '%s/NGII_Data_%s_%s_y_0_%s.png' % (ypath, i, j, one_hot_enc)
-						y_patch_0 = cv2.resize(y_patch_0, (40, 40), interpolation=cv2.INTER_AREA) * 225
-						cv2.imwrite(yname0, y_patch_0)
-						
 						yname90 = '%s/NGII_Data_%s_%s_y_90_%s.png' % (ypath, i, j, one_hot_enc)
-						y_patch_90 = cv2.resize(y_patch_90, (40, 40), interpolation=cv2.INTER_AREA) * 225
-						cv2.imwrite(yname90, y_patch_90)
-						
 						yname180 = '%s/NGII_Data_%s_%s_y_180_%s.png' % (ypath, i, j, one_hot_enc)
-						y_patch_180 = cv2.resize(y_patch_180, (40, 40), interpolation=cv2.INTER_AREA) * 225
-						cv2.imwrite(yname180, y_patch_180)
-						
 						yname270 = '%s/NGII_Data_%s_%s_y_270_%s.png' % (ypath, i, j, one_hot_enc)
-						y_patch_270 = cv2.resize(y_patch_270, (40, 40), interpolation=cv2.INTER_AREA) * 225
+
+						if resize_option = True:
+							y_patch_0 = cv2.resize(y_patch_0, (40, 40), interpolation=cv2.INTER_AREA) * 225
+							y_patch_90 = cv2.resize(y_patch_90, (40, 40), interpolation=cv2.INTER_AREA) * 225
+							y_patch_180 = cv2.resize(y_patch_180, (40, 40), interpolation=cv2.INTER_AREA) * 225
+							y_patch_270 = cv2.resize(y_patch_270, (40, 40), interpolation=cv2.INTER_AREA) * 225
+
+						cv2.imwrite(yname0, y_patch_0)
+						cv2.imwrite(yname90, y_patch_90)
+						cv2.imwrite(yname180, y_patch_180)
 						cv2.imwrite(yname270, y_patch_270)
 
 						y_data.append(yname0)
