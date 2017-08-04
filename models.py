@@ -38,13 +38,54 @@ class Common:
 		return tf.nn.conv2d(x, W, strides=[1, 2, 2, 1], padding='SAME')
 
 	def conv2d_stride4(self, x, W):
-		   return tf.nn.conv2d(x, W, strides=[1, 4, 4, 1], padding='SAME')
+		return tf.nn.conv2d(x, W, strides=[1, 4, 4, 1], padding='SAME')
+
+	def deconv_layer(self, x, W_shape, b_shape, name, padding='SAME'):
+        W = self.weight_variable(W_shape)
+        b = self.bias_variable([b_shape])
+
+        x_shape = tf.shape(x)
+        out_shape = tf.pack([x_shape[0], x_shape[1], x_shape[2], W_shape[2]])
+
+        return tf.nn.conv2d_transpose(x, W, out_shape, [1, 1, 1, 1], padding=padding) + b
+
+	def max_pool_2x2_argmax():
+		return tf.nn.max_pool_with_argmax(x, ksize=[1, 2, 2, 1], strides=[1, 1, 1, 1], padding='SAME')
 
 	def max_pool_2x2(self, x):
 		return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 1, 1, 1], padding='SAME')
 
 	def max_pool_2x2_stride(self, x):
 		return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+
+	def unpool_layer2x2(self, x, raveled_argmax, out_shape):
+        argmax = self.unravel_argmax(raveled_argmax, tf.to_int64(out_shape))
+        output = tf.zeros([out_shape[1], out_shape[2], out_shape[3]])
+
+        height = tf.shape(output)[0]
+        width = tf.shape(output)[1]
+        channels = tf.shape(output)[2]
+
+        t1 = tf.to_int64(tf.range(channels))
+        t1 = tf.tile(t1, [((width + 1) // 2) * ((height + 1) // 2)])
+        t1 = tf.reshape(t1, [-1, channels])
+        t1 = tf.transpose(t1, perm=[1, 0])
+        t1 = tf.reshape(t1, [channels, (height + 1) // 2, (width + 1) // 2, 1])
+
+        t2 = tf.squeeze(argmax)
+        t2 = tf.pack((t2[0], t2[1]), axis=0)
+        t2 = tf.transpose(t2, perm=[3, 1, 2, 0])
+
+        t = tf.concat(3, [t2, t1])
+        indices = tf.reshape(t, [((height + 1) // 2) * ((width + 1) // 2) * channels, 3])
+
+        x1 = tf.squeeze(x)
+        x1 = tf.reshape(x1, [-1, channels])
+        x1 = tf.transpose(x1, perm=[1, 0])
+        values = tf.reshape(x1, [-1])
+
+        delta = tf.SparseTensor(indices, values, tf.to_int64(tf.shape(output)))
+        return tf.expand_dims(tf.sparse_tensor_to_dense(tf.sparse_reorder(delta)), 0)
 
 	def batch_norm(self, x, n_out, phase_train):
 		"""
@@ -530,88 +571,120 @@ class Common_image(Common):
 
 					plt.show()
 
-class VGG16_label(Common_label):
+class VGG16_deconv(Common_image):
 	def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
-		Common_label.__init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
+		Common_image.__init__(self, model_name, input_patch_size, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
 
-		#Size: 64*64
-		self.W_conv1 = self.weight_variable([3, 3, 3, 64], 678678678)
-		self.b_conv1 = self.bias_variable([64])
-		self.h_conv1 = tf.nn.relu(self.conv2d(self.x_image, self.W_conv1) + self.b_conv1)
+		#Size: 224*224
+		self.W_conv1_1 = self.weight_variable([3, 3, 3, 64], 678678678)
+		self.b_conv1_1 = self.bias_variable([64])
+		self.h_conv1_1 = tf.nn.relu(self.conv2d(self.x_image, self.W_conv1_1) + self.b_conv1_1)
 
-		self.W_conv2 = self.weight_variable([3, 3, 64, 64], 12312323)
-		self.b_conv2 = self.bias_variable([64])
-		self.h_conv2 = tf.nn.relu(self.conv2d(self.h_conv1, self.W_conv2) + self.b_conv2)
+		self.W_conv1_2 = self.weight_variable([3, 3, 64, 64], 12312323)
+		self.b_conv1_2 = self.bias_variable([64])
+		self.h_conv1_2 = tf.nn.relu(self.conv2d(self.h_conv1_1, self.W_conv1_2) + self.b_conv1_2)
 
-		self.W_conv3 = self.weight_variable([3, 3, 64, 64], 12312323)
-		self.b_conv3 = self.bias_variable([64])
-		self.h_conv3 = tf.nn.relu(self.conv2d(self.h_conv2, self.W_conv3) + self.b_conv3)
+		#Size: 112*112
+		self.h_pool1, self.h_pool1_argmax = self.max_pool_2x2_argmax(self.h_conv2)
 
-		self.W_conv4 = self.weight_variable([3, 3, 64, 64], 12312323)
-		self.b_conv4 = self.bias_variable([64])
-		self.h_conv4 = tf.nn.relu(self.conv2d(self.h_conv3, self.W_conv4) + self.b_conv4)
-		self.h_pool4 = self.max_pool_2x2_stride(self.h_conv4)
+		self.W_conv2_1 = self.weight_variable([3, 3, 64, 128], 12312323)
+		self.b_conv2_1 = self.bias_variable([128])
+		self.h_conv2_1 = tf.nn.relu(self.conv2d(self.h_pool1_2, self.W_conv2_1) + self.b_conv2_1)
 
-		#Size: 32*32
-		self.W_conv5 = self.weight_variable([3, 3, 64, 128], 12312323)
-		self.b_conv5 = self.bias_variable([128])
-		self.h_conv5 = tf.nn.relu(self.conv2d(self.h_pool4, self.W_conv5) + self.b_conv5)
+		self.W_conv2_2 = self.weight_variable([3, 3, 128, 128], 12312323)
+		self.b_conv2_2 = self.bias_variable([128])
+		self.h_conv2_2 = tf.nn.relu(self.conv2d(self.h_conv2_1, self.W_conv2_2) + self.b_conv2_2)
 
-		self.W_conv6 = self.weight_variable([3, 3, 128, 128], 12312323)
-		self.b_conv6 = self.bias_variable([128])
-		self.h_conv6 = tf.nn.relu(self.conv2d(self.h_conv5, self.W_conv6) + self.b_conv6)
+		#Size: 56*56
+		self.h_pool2, self.h_pool2_argmax = self.max_pool_2x2_argmax(self.h_conv4)
 
-		self.W_conv7 = self.weight_variable([3, 3, 128, 128], 12312323)
-		self.b_conv7 = self.bias_variable([128])
-		self.h_conv7 = tf.nn.relu(self.conv2d(self.h_conv6, self.W_conv7) + self.b_conv7)
-		self.h_pool7 = self.max_pool_2x2_stride(self.h_conv7)
+		self.W_conv3_1 = self.weight_variable([3, 3, 128, 256], 12312323)
+		self.b_conv3_1 = self.bias_variable([256])
+		self.h_conv3_1 = tf.nn.relu(self.conv2d(self.h_pool2_2, self.W_conv3_1) + self.b_conv3_1)
 
-		#Size: 16*16
-		self.W_conv8 = self.weight_variable([3, 3, 128, 256], 12312323)
-		self.b_conv8 = self.bias_variable([256])
-		self.h_conv8 = tf.nn.relu(self.conv2d(self.h_pool7, self.W_conv8) + self.b_conv8)
+		self.W_conv3_2 = self.weight_variable([3, 3, 256, 256], 12312323)
+		self.b_conv3_2 = self.bias_variable([256])
+		self.h_conv3_2 = tf.nn.relu(self.conv2d(self.h_conv3_1, self.W_conv3_2) + self.b_conv3_2)
 
-		self.W_conv9 = self.weight_variable([3, 3, 256, 256], 12312323)
-		self.b_conv9 = self.bias_variable([256])
-		self.h_conv9 = tf.nn.relu(self.conv2d(self.h_conv8, self.W_conv9) + self.b_conv9)
+		self.W_conv3_3 = self.weight_variable([3, 3, 256, 256], 12312323)
+		self.b_conv3_3 = self.bias_variable([256])
+		self.h_conv3_3 = tf.nn.relu(self.conv2d(self.h_conv3_2, self.W_conv3_3) + self.b_conv3_3)
 
-		self.W_conv10 = self.weight_variable([3, 3, 256, 256], 12312323)
-		self.b_conv10 = self.bias_variable([256])
-		self.h_conv10 = tf.nn.relu(self.conv2d(self.h_conv9, self.W_conv10) + self.b_conv10)
-		self.h_pool10 = self.max_pool_2x2_stride(self.h_conv10)
+		#Size: 28*28
+		self.h_pool3, self.h_pool3_argmax = self.max_pool_2x2_argmax(self.h_conv7)
 
-		#Size: 8*8
-		self.W_conv11 = self.weight_variable([3, 3, 256, 512], 12312323)
-		self.b_conv11 = self.bias_variable([512])
-		self.h_conv11 = tf.nn.relu(self.conv2d(self.h_pool10, self.W_conv11) + self.b_conv11)
+		self.W_conv4_1 = self.weight_variable([3, 3, 256, 512], 12312323)
+		self.b_conv4_1 = self.bias_variable([512])
+		self.h_conv4_1 = tf.nn.relu(self.conv2d(self.h_pool3_3, self.W_conv4_1) + self.b_conv4_1)
 
-		self.W_conv12 = self.weight_variable([3, 3, 512, 512], 12312323)
-		self.b_conv12 = self.bias_variable([512])
-		self.h_conv12 = tf.nn.relu(self.conv2d(self.h_conv11, self.W_conv12) + self.b_conv12)
+		self.W_conv4_2 = self.weight_variable([3, 3, 512, 512], 12312323)
+		self.b_conv4_2 = self.bias_variable([512])
+		self.h_conv4_2 = tf.nn.relu(self.conv2d(self.h_conv4_1, self.W_conv4_2) + self.b_conv4_2)
 
-		self.W_conv13 = self.weight_variable([3, 3, 512, 512], 12312323)
-		self.b_conv13 = self.bias_variable([512])
-		self.h_conv13 = tf.nn.relu(self.conv2d(self.h_conv12, self.W_conv13) + self.b_conv13)
-		self.h_pool13 = self.max_pool_2x2_stride(self.h_conv13)
+		self.W_conv4_3 = self.weight_variable([3, 3, 512, 512], 12312323)
+		self.b_conv4_3 = self.bias_variable([512])
+		self.h_conv4_3 = tf.nn.relu(self.conv2d(self.h_conv4_2, self.W_conv4_3) + self.b_conv4_3)
 
-		#Size: 4*4
-		self.W_fc14 = self.weight_variable([4*4*512,4096], 345345345)
-		self.b_fc14 = self.bias_variable([4096])
-		self.h_pool13_flat = tf.reshape(self.h_pool13, [-1, 4*4*512])
-		self.h_fc14 = tf.nn.relu(tf.matmul(self.h_pool13_flat, self.W_fc14) + self.b_fc14)
+		#Size: 14*14
+		self.h_pool4, self.h_pool4_argmax = self.max_pool_2x2_argmax(self.h_conv10)
 
-		self.W_fc15 = self.weight_variable([4096, 4096], 4546546)
-		self.b_fc15 = self.bias_variable([4096])
-		self.h_fc15 = tf.nn.relu(tf.matmul(self.h_fc14, self.W_fc15) + self.b_fc15)
+		self.W_conv5_1 = self.weight_variable([3, 3, 512, 512], 12312323)
+		self.b_conv5_1 = self.bias_variable([512])
+		self.h_conv5_1 = tf.nn.relu(self.conv2d(self.h_pool4_3, self.W_conv5_1) + self.b_conv5_1)
 
-		self.W_fc16 = self.weight_variable([4096, 3], 4546546)
-		self.b_fc16 = self.bias_variable([3])
-		self.h_fc16 = tf.matmul(self.h_fc15, self.W_fc16) + self.b_fc16
+		self.W_conv5_2 = self.weight_variable([3, 3, 512, 512], 12312323)
+		self.b_conv5_2 = self.bias_variable([512])
+		self.h_conv5_2 = tf.nn.relu(self.conv2d(self.h_conv5_1, self.W_conv5_2) + self.b_conv5_2)
 
-		self.y_conv = tf.reshape(self.h_fc16, [-1, 3])
+		self.W_conv5_3 = self.weight_variable([3, 3, 512, 512], 12312323)
+		self.b_conv5_3 = self.bias_variable([512])
+		self.h_conv5_3 = tf.nn.relu(self.conv2d(self.h_conv5_2, self.W_conv5_3) + self.b_conv5_3)
 
-		self.correct_prediction = tf.equal(tf.argmax(self.y_conv, 1), tf.argmax(self.y_, 1))
-		self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, tf.float32))
+		#Size: 7*7
+		self.h_pool5, self.h_pool5_argmax = self.max_pool_2x2_argmax(self.h_conv13)
+		self.h_pool5_flat = tf.reshape(self.h_pool5, [-1, 7*7*512])
+
+		#FC
+		self.W_fc_6 = self.weight_variable([7*7*512,4096], 345345345)
+		self.b_fc_6 = self.bias_variable([4096])
+		self.h_fc_6 = tf.nn.relu(tf.matmul(self.h_pool5_flat, self.W_fc_6) + self.b_fc_6)
+
+		self.W_fc_7 = self.weight_variable([4096, 4096], 4546546)
+		self.b_fc_7 = self.bias_variable([4096])
+		self.h_fc_7 = tf.nn.relu(tf.matmul(self.h_fc_6, self.W_fc_7) + self.b_fc_7)
+
+		self.deconv_fc_6 = self.deconv_layer(self.fc_7, [7, 7, 512, 4096], 512, 'fc6_deconv')
+
+		self.unpool_5 = self.unpool_layer2x2(self.deconv_fc_6, self.pool_5_argmax, tf.shape(self.conv_5_3))
+
+		self.deconv_5_3 = self.deconv_layer(self.unpool_5, [3, 3, 512, 512], 512, 'deconv_5_3')
+		self.deconv_5_2 = self.deconv_layer(self.deconv_5_3, [3, 3, 512, 512], 512, 'deconv_5_2')
+		self.deconv_5_1 = self.deconv_layer(self.deconv_5_2, [3, 3, 512, 512], 512, 'deconv_5_1')
+
+		self.unpool_4 = self.unpool_layer2x2(self.deconv_5_1, self.pool_4_argmax, tf.shape(self.conv_4_3))
+
+		self.deconv_4_3 = self.deconv_layer(self.unpool_4, [3, 3, 512, 512], 512, 'deconv_4_3')
+		self.deconv_4_2 = self.deconv_layer(self.deconv_4_3, [3, 3, 512, 512], 512, 'deconv_4_2')
+		self.deconv_4_1 = self.deconv_layer(self.deconv_4_2, [3, 3, 256, 512], 256, 'deconv_4_1')
+
+		self.unpool_3 = self.unpool_layer2x2(self.deconv_4_1, self.pool_3_argmax, tf.shape(self.conv_3_3))
+
+		self.deconv_3_3 = self.deconv_layer(self.unpool_3, [3, 3, 256, 256], 256, 'deconv_3_3')
+		self.deconv_3_2 = self.deconv_layer(self.deconv_3_3, [3, 3, 256, 256], 256, 'deconv_3_2')
+		self.deconv_3_1 = self.deconv_layer(self.deconv_3_2, [3, 3, 128, 256], 128, 'deconv_3_1')
+
+		self.unpool_2 = self.unpool_layer2x2(self.deconv_3_1, self.pool_2_argmax, tf.shape(self.conv_2_2))
+
+		self.deconv_2_2 = self.deconv_layer(self.unpool_2, [3, 3, 128, 128], 128, 'deconv_2_2')
+		self.deconv_2_1 = self.deconv_layer(self.deconv_2_2, [3, 3, 64, 128], 64, 'deconv_2_1')
+
+		self.unpool_1 = self.unpool_layer2x2(self.deconv_2_1, self.pool_1_argmax, tf.shape(self.conv_1_2))
+
+		self.deconv_1_2 = self.deconv_layer(self.unpool_1, [3, 3, 64, 64], 64, 'deconv_1_2')
+		self.deconv_1_1 = self.deconv_layer(self.deconv_1_2, [3, 3, 32, 64], 32, 'deconv_1_1')
+
+		score_1 = self.deconv_layer(deconv_1_1, [1, 1, 21, 32], 21, 'score_1')
+
 
 		self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_, logits=self.y_conv))
 

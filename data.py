@@ -138,7 +138,7 @@ def get_patch_num(dataset_name):
 
 def make_batch(conn, cur, purpose, batch_size, y_batch_interest=None):
 	patch_dir = []
-	'''
+
 	if y_batch_interest == 'Building':
 		patch_dir_building = get_patch_dir_building(conn, cur, purpose, batch_size)
 		patch_dir_no_building = get_patch_dir_no_building(conn, cur, purpose, batch_size)
@@ -148,9 +148,7 @@ def make_batch(conn, cur, purpose, batch_size, y_batch_interest=None):
 			patch_dir.append(row)
 	else:
 		patch_dir = get_patch_dir(conn, cur, purpose, batch_size)
-	'''
-	patch_dir = get_patch_dir(conn, cur, purpose, batch_size)
-
+	
 	x_batch_image = []
 	y_batch_ohe = []
 	y_batch_image = []
