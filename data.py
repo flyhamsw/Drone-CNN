@@ -148,7 +148,7 @@ def make_batch(conn, cur, purpose, batch_size, y_batch_interest=None):
 			patch_dir.append(row)
 	else:
 		patch_dir = get_patch_dir(conn, cur, purpose, batch_size)
-	
+
 	x_batch_image = []
 	y_batch_ohe = []
 	y_batch_image = []
@@ -162,7 +162,7 @@ def make_batch(conn, cur, purpose, batch_size, y_batch_interest=None):
 				y_batch_ohe.append([0, 1])
 		else:
 			y_batch_ohe.append([patch_dir[i][2], patch_dir[i][3], patch_dir[i][4]])
-			im = cv2.imread(patch_dir[i][1]) / 225
+			im = cv2.imread(patch_dir[i][1])
 			y_batch_image.append(im)
 
 	return x_batch_image, y_batch_ohe, y_batch_image

@@ -7,11 +7,11 @@ ngii_dir = data.get_ngii_dir_all()
 
 patches_dir = 'patches'
 
-patch_size = 64
+patch_size = 224
 
 patch_stride = patch_size
 
-dfs_option = True
+dfs_option = False
 resize_option = False
 
 for row in ngii_dir:
@@ -21,8 +21,13 @@ for row in ngii_dir:
 	y_dir = row[2]
 
 	#half scale
+	'''
 	x = np.array(cv2.resize(cv2.imread(x_dir), None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA))
 	y = np.array(cv2.resize(cv2.imread(y_dir), None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA))
+	'''
+
+	x = np.array(cv2.imread(x_dir))
+	y = np.array(cv2.imread(y_dir))
 
 	xpath = '%s/%s/x' % (patches_dir, curr_dataset_name)
 	ypath = '%s/%s/y' % (patches_dir, curr_dataset_name)
