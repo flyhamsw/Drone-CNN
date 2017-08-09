@@ -24,16 +24,17 @@ class Common:
 		self.g = tf.Graph()
 
 	def weight_variable(self, shape, seed=234234234234):
-		initial = tf.truncated_normal(shape, stddev=0.1, seed=seed)
+		initial = tf.truncated_normal(shape, stddev=0.05, seed=seed)
 		return tf.Variable(initial)
 
 	def bias_variable(self, shape):
-		initial = tf.constant(0.1, shape=shape)
+		initial = tf.constant(0.05, shape=shape)
 		return tf.Variable(initial)
 
 	def conv_layer(self, x, W_shape, b_shape, name, padding='SAME'):
 		W = self.weight_variable(W_shape)
 		b = self.bias_variable([b_shape])
+		#return tf.nn.relu(self.batch_norm(tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding=padding) + b, b_shape, self.phase_train))
 		return tf.nn.relu(tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding=padding) + b)
 
 	def conv2d(self, x, W):
@@ -52,7 +53,8 @@ class Common:
 		x_shape = tf.shape(x)
 		out_shape = tf.stack([x_shape[0], x_shape[1], x_shape[2], W_shape[2]])
 
-		return tf.nn.conv2d_transpose(x, W, out_shape, [1, 1, 1, 1], padding=padding) + b
+		#return self.batch_norm(tf.nn.conv2d_transpose(x, W, out_shape, [1, 1, 1, 1], padding=padding) + b, b_shape, self.phase_train)
+		return tf.nn.conv2d_transpose(x, W, out_shape, [1, 1, 1, 1])
 
 	def pool_layer(self, x):
 		return tf.nn.max_pool_with_argmax(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
@@ -490,18 +492,27 @@ class Common_image(Common):
 	def __init__(self, model_name, input_patch_size, output_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
 		Common.__init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
 		self.output_patch_size = output_patch_size
-		self.y_ = tf.placeholder('float', shape=[None, output_patch_size, output_patch_size, 3])
+		self.y_ = tf.placeholder(tf.int64, shape=[1, output_patch_size, output_patch_size])
 
 	def train(self, epoch):
 		os.makedirs('tb/%s' % self.model_name)
 		os.makedirs('trained_model/%s' % self.model_name)
 
 		tf.summary.image('input x_image', self.x_image)
-		tf.summary.image('y_ground_truth', self.y_)
 		tf.summary.image('y_prediction', self.y_conv)
 		tf.summary.image('y_pred_softmax', self.y_soft)
+
+		'''
+		tf.summary.image('conv_1_1', self.conv_1_2)
+		tf.summary.image('conv_2_2', self.conv_2_2)
+		tf.summary.image('conv_3_3', self.conv_3_3)
+		tf.summary.image('conv_4_3', self.conv_4_3)
+		tf.summary.image('conv_5_3', self.conv_5_3)
+		'''
+
 		tf.summary.scalar('cross_entropy', self.cross_entropy)
 		tf.summary.scalar('learning rate', self.lr)
+		tf.summary.scalar('accuracy', self.accuracy)
 
 		sess = tf.Session()
 
@@ -527,9 +538,14 @@ class Common_image(Common):
 		print('\nCurrent Model: %s' % self.model_name)
 
 		for i in range(0, epoch):
-			for j in range(0, steps):
-				x_batch, _, y_batch = data.make_batch(conn, cur, 'training', self.batch_size)
+			patch_queue = data.get_patch_dir_all(conn, cur, 'training')
 
+			for j in range(0, steps):
+				x_batch, y_batch = data.make_batch_from_patch_dir(self.batch_size, patch_queue)
+
+				print('Current Step: %d, Current Epoch: %d' % (k, i))
+
+				'''
 				if k%10 == 0:
 					print('\nstep %d, epoch %d' % (k, i))
 					train_xe = sess.run(self.cross_entropy, feed_dict={self.x_image:x_batch, self.y_:y_batch, self.keep_prob: 1.0})
@@ -537,9 +553,9 @@ class Common_image(Common):
 					print(train_xe)
 
 					f_log.write('%d,%d,%f\n' % (i, k, train_xe))
-
+				'''
 				if k%self.lr_decay_freq == 0:
-					self.lr_value = self.lr_value * 0.1
+					self.lr_value = self.lr_value * self.lr_decay_rate
 					print('Learning rate:')
 					print(self.lr_value)
 
@@ -631,7 +647,7 @@ class VGG16_deconv(Common_image):
 	def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
 		Common_image.__init__(self, model_name, input_patch_size, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
 
-		#self.expected = tf.expand_dims(self.y_, -1)
+		self.expected = tf.expand_dims(self.y_, -1)
 
 		self.conv_1_1 = self.conv_layer(self.x_image, [3, 3, 3, 64], 64, 'conv_1_1')
 		self.conv_1_2 = self.conv_layer(self.conv_1_1, [3, 3, 64, 64], 64, 'conv_1_2')
@@ -705,7 +721,7 @@ class VGG16_deconv(Common_image):
 		self.y_soft = tf.nn.softmax(self.y_conv)
 
 		#self.logits = tf.reshape(self.score_1, (-1, 21))
-		self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_, logits=self.y_conv))
+		self.cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y_, logits=self.y_conv))
 
 		self.train_step = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.cross_entropy)
 
@@ -713,7 +729,7 @@ class VGG16_deconv_single(Common_image):
 	def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
 		Common_image.__init__(self, model_name, input_patch_size, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size)
 
-		#self.expected = tf.expand_dims(self.y_, -1)
+		self.expected = tf.expand_dims(self.y_, -1)
 
 		self.conv_1_1 = self.conv_layer(self.x_image, [3, 3, 3, 64], 64, 'conv_1_1')
 		self.conv_1_2 = self.conv_layer(self.conv_1_1, [3, 3, 64, 64], 64, 'conv_1_2')
@@ -750,46 +766,51 @@ class VGG16_deconv_single(Common_image):
 
 		self.deconv_fc_6 = self.deconv_layer(self.fc_7, [7, 7, 512, 4096], 512, 'fc6_deconv')
 
-		#self.unpool_5 = self.unpool_layer2x2(self.deconv_fc_6, self.pool_5_argmax, tf.shape(self.conv_5_3))
-		self.unpool_5 = self.unpool_layer2x2_batch(self.deconv_fc_6, self.pool_5_argmax)
+		self.unpool_5 = self.unpool_layer2x2(self.deconv_fc_6, self.pool_5_argmax, tf.shape(self.conv_5_3))
+		#self.unpool_5 = self.unpool_layer2x2_batch(self.deconv_fc_6, self.pool_5_argmax)
 
 		self.deconv_5_3 = self.deconv_layer(self.unpool_5, [3, 3, 512, 512], 512, 'deconv_5_3')
 		self.deconv_5_2 = self.deconv_layer(self.deconv_5_3, [3, 3, 512, 512], 512, 'deconv_5_2')
 		self.deconv_5_1 = self.deconv_layer(self.deconv_5_2, [3, 3, 512, 512], 512, 'deconv_5_1')
 
-		#self.unpool_4 = self.unpool_layer2x2(self.deconv_5_1, self.pool_4_argmax, tf.shape(self.conv_4_3))
-		self.unpool_4 = self.unpool_layer2x2_batch(self.deconv_5_1, self.pool_4_argmax)
+		self.unpool_4 = self.unpool_layer2x2(self.deconv_5_1, self.pool_4_argmax, tf.shape(self.conv_4_3))
+		#self.unpool_4 = self.unpool_layer2x2_batch(self.deconv_5_1, self.pool_4_argmax)
 
 		self.deconv_4_3 = self.deconv_layer(self.unpool_4, [3, 3, 512, 512], 512, 'deconv_4_3')
 		self.deconv_4_2 = self.deconv_layer(self.deconv_4_3, [3, 3, 512, 512], 512, 'deconv_4_2')
 		self.deconv_4_1 = self.deconv_layer(self.deconv_4_2, [3, 3, 256, 512], 256, 'deconv_4_1')
 
-		#self.unpool_3 = self.unpool_layer2x2(self.deconv_4_1, self.pool_3_argmax, tf.shape(self.conv_3_3))
-		self.unpool_3 = self.unpool_layer2x2_batch(self.deconv_4_1, self.pool_3_argmax)
+		self.unpool_3 = self.unpool_layer2x2(self.deconv_4_1, self.pool_3_argmax, tf.shape(self.conv_3_3))
+		#self.unpool_3 = self.unpool_layer2x2_batch(self.deconv_4_1, self.pool_3_argmax)
 
 		self.deconv_3_3 = self.deconv_layer(self.unpool_3, [3, 3, 256, 256], 256, 'deconv_3_3')
 		self.deconv_3_2 = self.deconv_layer(self.deconv_3_3, [3, 3, 256, 256], 256, 'deconv_3_2')
 		self.deconv_3_1 = self.deconv_layer(self.deconv_3_2, [3, 3, 128, 256], 128, 'deconv_3_1')
 
-		#self.unpool_2 = self.unpool_layer2x2(self.deconv_3_1, self.pool_2_argmax, tf.shape(self.conv_2_2))
-		self.unpool_2 = self.unpool_layer2x2_batch(self.deconv_3_1, self.pool_2_argmax)
+		self.unpool_2 = self.unpool_layer2x2(self.deconv_3_1, self.pool_2_argmax, tf.shape(self.conv_2_2))
+		#self.unpool_2 = self.unpool_layer2x2_batch(self.deconv_3_1, self.pool_2_argmax)
 
 		self.deconv_2_2 = self.deconv_layer(self.unpool_2, [3, 3, 128, 128], 128, 'deconv_2_2')
 		self.deconv_2_1 = self.deconv_layer(self.deconv_2_2, [3, 3, 64, 128], 64, 'deconv_2_1')
 
-		#self.unpool_1 = self.unpool_layer2x2(self.deconv_2_1, self.pool_1_argmax, tf.shape(self.conv_1_2))
-		self.unpool_1 = self.unpool_layer2x2_batch(self.deconv_2_1, self.pool_1_argmax)
+		self.unpool_1 = self.unpool_layer2x2(self.deconv_2_1, self.pool_1_argmax, tf.shape(self.conv_1_2))
+		#self.unpool_1 = self.unpool_layer2x2_batch(self.deconv_2_1, self.pool_1_argmax)
 
 		self.deconv_1_2 = self.deconv_layer(self.unpool_1, [3, 3, 64, 64], 64, 'deconv_1_2')
 		self.deconv_1_1 = self.deconv_layer(self.deconv_1_2, [3, 3, 32, 64], 32, 'deconv_1_1')
 
-		self.y_conv = self.deconv_layer(self.deconv_1_1, [1, 1, 3, 32], 3, 'score_1')
-		self.y_soft = tf.nn.softmax(self.y_conv)
+		self.score_1 = self.deconv_layer(self.deconv_1_1, [1, 1, 3, 32], 3, 'score_1')
 
-		#self.logits = tf.reshape(self.score_1, (-1, 21))
-		self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_, logits=self.y_conv))
+		self.logits = tf.reshape(self.score_1, (-1, 3))
+		self.cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.logits, labels=tf.reshape(self.expected, [-1]), name='x_entropy'))
 
-		self.train_step = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.cross_entropy)
+		self.train_step = tf.train.AdamOptimizer(self.lr).minimize(self.cross_entropy)
+
+		self.y_soft = tf.reshape(tf.nn.softmax(self.logits), tf.shape(self.score_1))
+		self.y_conv = tf.reshape(self.logits, tf.shape(self.score_1))
+
+		self.prediction = tf.argmax(self.y_soft, dimension=3)
+		self.accuracy = tf.reduce_sum(tf.pow(self.prediction - self.expected, 2))
 
 class Saito_label_bn(Common_label):
 	def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
