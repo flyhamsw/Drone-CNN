@@ -88,15 +88,10 @@ def get_patch_all(conn, cur, purpose):
 	cur.execute("select patch_dir.x_dir, patch_dir.y_dir from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where ngii_dir.purpose='%s';" % purpose)
 	patch_dir = cur.fetchall()
 	random.shuffle(patch_dir)
-	x_patch_queue = []
-	y_patch_queue = []
+	patch_queue = []
 	for row in patch_dir:
-		x_patch = (cv2.cvtColor(cv2.imread(row[0]), cv2.COLOR_BGR2RGB))
-		y_patch = (cv2.cvtColor(cv2.imread(row[1]), cv2.COLOR_BGR2RGB))
-		x_patch_queue.append(x_patch)
-		y_patch_queue.append(y_patch)
-		print('reading patches from disk...')
-	return np.array(x_patch_queue), np.array(y_patch_queue)
+		patch_queue.append((row[0], row[1]))
+	return patch_queue
 
 def get_patch_dir_building(conn, cur, purpose, batch_size):
 	cur.execute("select patch_dir.x_dir, patch_dir.y_dir, patch_dir.building, patch_dir.road, patch_dir.otherwise from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where ngii_dir.purpose='%s' and patch_dir.building=1 order by RANDOM() LIMIT %d;" % (purpose, int(batch_size/2)))
@@ -156,8 +151,8 @@ def make_batch_from_patch_queue(batch_size, patch_queue):
 	for i in range(0, batch_size):
 		try:
 			x_patch, y_patch = patch_queue.pop()
-			x_batch.append(x_patch)
-			y_batch.append(y_patch)
+			x_batch.append(cv2.cvtColor(cv2.imread(x_patch), cv2.COLOR_BGR2RGB))
+			y_batch.append(cv2.cvtColor(cv2.imread(y_patch), cv2.COLOR_BGR2RGB))
 		except Exception as e:
 			pass
 	return x_batch, y_batch

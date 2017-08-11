@@ -107,7 +107,7 @@ for row in ngii_dir:
 						y_data.append(yname180)
 						y_data.append(yname270)
 
-						print('NGII_Data_%s_%s_y_0.png done, and it is %s' % (i, j, one_hot_enc))
+						print('NGII_Data_%s_%s_y_0.bmp done, and it is %s' % (i, j, one_hot_enc))
 
 						x_patch = np.array(x[i:i+patch_size, j:j+patch_size])
 

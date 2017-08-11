@@ -538,19 +538,13 @@ class Common_image(Common):
 
 		print('\nCurrent Model: %s' % self.model_name)
 
-		x_patch_queue, y_patch_queue = data.get_patch_all(conn, cur, 'training')
+
 
 		for i in range(0, epoch):
-			num_patch = len(x_patch_queue)
+			patch_queue = data.get_patch_all(conn, cur, 'training')
+			num_patch = len(patch_queue)
 			for j in range(0, steps):
-				if j+self.batch_size <= num_patch:
-					print('slicing patches...')
-					x_batch = x_patch_queue[j:j+self.batch_size]
-					y_batch = y_patch_queue[j:j+self.batch_size]
-				else:
-					print('slicing patches...last...')
-					x_batch = x_patch_queue[j:num_patch]
-					y_batch = y_patch_queue[j:num_patch]
+				x_batch, y_batch = data.make_batch_from_patch_queue(self.batch_size, patch_queue)
 
 				print('Current Step: %d, Current Epoch: %d' % (k, i))
 
@@ -560,8 +554,6 @@ class Common_image(Common):
 					print(self.lr_value)
 
 				summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
-
-				print('Complete')
 
 				k = k + 1
 				train_writer.add_summary(summary, k)
