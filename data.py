@@ -3,6 +3,7 @@ import os
 import numpy as np
 import random
 import cv2
+import tensorflow as tf
 
 def get_db_connection():
 	try:
@@ -250,59 +251,38 @@ def insert_drone_patch(name, x_data, num):
 	conn.close()
 
 def read_and_decode(filename_queue, batch_size):
+	IMAGE_HEIGHT = 224
+	IMAGE_WIDTH = 224
 
-    reader = tf.TFRecordReader()
+	reader = tf.TFRecordReader()
 
-    _, serialized_example = reader.read(filename_queue)
+	_, serialized_example = reader.read(filename_queue)
 
-    features = tf.parse_single_example(
-      serialized_example,
-      # Defaults are not specified since both keys are required.
-      features={
-        'height': tf.FixedLenFeature([], tf.int64),
-        'width': tf.FixedLenFeature([], tf.int64),
-        'image_raw': tf.FixedLenFeature([], tf.string),
-        'mask_raw': tf.FixedLenFeature([], tf.string)
-        })
+	features = tf.parse_single_example(serialized_example, features={'height': tf.FixedLenFeature([], tf.int64), 'width': tf.FixedLenFeature([], tf.int64),	'image_raw': tf.FixedLenFeature([], tf.string),	'mask_raw': tf.FixedLenFeature([], tf.string)})
 
-    # Convert from a scalar string tensor (whose single string has
-    # length mnist.IMAGE_PIXELS) to a uint8 tensor with shape
-    # [mnist.IMAGE_PIXELS].
-    image = tf.decode_raw(features['image_raw'], tf.uint8)
-    annotation = tf.decode_raw(features['mask_raw'], tf.uint8)
+	image = tf.decode_raw(features['image_raw'], tf.uint8)
+	annotation = tf.decode_raw(features['mask_raw'], tf.uint8)
 
-    height = tf.cast(features['height'], tf.int32)
-    width = tf.cast(features['width'], tf.int32)
+	height = tf.cast(features['height'], tf.int32)
+	width = tf.cast(features['width'], tf.int32)
 
-    image_shape = tf.pack([height, width, 3])
-    annotation_shape = tf.pack([height, width, 1])
+	image_shape = tf.stack([height, width, 3])
+	annotation_shape = tf.stack([height, width, 3])
 
-    image = tf.reshape(image, image_shape)
-    annotation = tf.reshape(annotation, annotation_shape)
+	image = tf.reshape(image, image_shape)
+	annotation = tf.reshape(annotation, annotation_shape)
 
-    image_size_const = tf.constant((IMAGE_HEIGHT, IMAGE_WIDTH, 3), dtype=tf.int32)
-    annotation_size_const = tf.constant((IMAGE_HEIGHT, IMAGE_WIDTH, 1), dtype=tf.int32)
+	image_size_const = tf.constant((IMAGE_HEIGHT, IMAGE_WIDTH, 3), dtype=tf.int32)
+	annotation_size_const = tf.constant((IMAGE_HEIGHT, IMAGE_WIDTH, 3), dtype=tf.int32)
 
-    # Random transformations can be put here: right before you crop images
-    # to predefined size. To get more information look at the stackoverflow
-    # question linked above.
+	resized_image = tf.image.resize_image_with_crop_or_pad(image=image, target_height=IMAGE_HEIGHT, target_width=IMAGE_WIDTH)
 
-    resized_image = tf.image.resize_image_with_crop_or_pad(image=image,
-                                           target_height=IMAGE_HEIGHT,
-                                           target_width=IMAGE_WIDTH)
-
-    resized_annotation = tf.image.resize_image_with_crop_or_pad(image=annotation,
-                                           target_height=IMAGE_HEIGHT,
-                                           target_width=IMAGE_WIDTH)
+	resized_annotation = tf.image.resize_image_with_crop_or_pad(image=annotation, target_height=IMAGE_HEIGHT, target_width=IMAGE_WIDTH)
 
 
-    images, annotations = tf.train.shuffle_batch( [resized_image, resized_annotation],
-                                                 batch_size=batch_size,
-                                                 capacity=30,
-                                                 num_threads=2,
-                                                 min_after_dequeue=10)
+	images, annotations = tf.train.shuffle_batch([resized_image, resized_annotation], batch_size=batch_size, capacity=300, num_threads=2, min_after_dequeue=10)
 
-    return images, annotations
+	return images, annotations
 
 
 if __name__=='__main__':

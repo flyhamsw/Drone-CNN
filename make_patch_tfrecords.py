@@ -1,3 +1,6 @@
+'''
+http://warmspringwinds.github.io/tensorflow/tf-slim/2016/12/21/tfrecords-guide/
+'''
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -23,8 +26,8 @@ original_images = []
 
 for img_path, annotation_path in tqdm(filename_pairs):
 
-    img = np.array(cv2.imread(img_path))
-    annotation = np.array(cv2.imread(annotation_path))
+    img = np.array(cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB))
+    annotation = np.array(cv2.cvtColor(cv2.imread(annotation_path), cv2.COLOR_BGR2RGB))
 
     # The reason to store image sizes was demonstrated
     # in the previous example -- we have to know sizes

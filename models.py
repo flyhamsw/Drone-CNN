@@ -495,6 +495,7 @@ class Common_image(Common):
 		self.output_patch_size = output_patch_size
 		self.y_ = tf.placeholder('float', shape=[None, output_patch_size, output_patch_size, 3])
 
+
 	def train(self, epoch):
 		os.makedirs('tb/%s' % self.model_name)
 		os.makedirs('trained_model/%s' % self.model_name)
@@ -508,9 +509,6 @@ class Common_image(Common):
 
 		sess = tf.Session()
 
-		sess.run(tf.global_variables_initializer())
-		sess.run(tf.local_variables_initializer())
-
 		saver = tf.train.Saver()
 
 		merged = tf.summary.merge_all()
@@ -520,18 +518,21 @@ class Common_image(Common):
 
 		steps = data.get_steps(self.batch_size)
 
-		filename_queue = tf.train.string_input_producer(['Drone-CNN.tfrecords'], num_epochs=epoch)
+		filename_queue = tf.train.string_input_producer(['Drone-CNN.tfrecords'])
 
-		image, annotation = read_and_decode(filename_queue, self.batch_size)
+		image, annotation = data.read_and_decode(filename_queue, self.batch_size)
 
 		coord = tf.train.Coordinator()
 		threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+
+		sess.run(tf.global_variables_initializer())
+		sess.run(tf.local_variables_initializer())
 
 		print('Training...')
 		for k in tqdm(range(0, steps*epoch)):
 			x_batch, y_batch = sess.run([image, annotation])
 
-			summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: sess.run(x_batch), self.y_: sess.run(y_batch), self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
+			summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
 
 			k = k + 1
 			train_writer.add_summary(summary, k)
