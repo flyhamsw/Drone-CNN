@@ -498,22 +498,12 @@ class Common_image(Common):
 		os.makedirs('tb/%s' % self.model_name)
 		os.makedirs('trained_model/%s' % self.model_name)
 
-		tf.summary.image('input x_image', self.x_image)
-		tf.summary.image('y_prediction', self.y_conv)
-		tf.summary.image('y_GT', self.y_)
+		tf.summary.image('input x_image', self.x_image, 4)
+		tf.summary.image('y_prediction', self.y_conv, 4)
+		tf.summary.image('y_GT', self.y_, 4)
 		tf.summary.image('y_pred_softmax', self.y_soft)
-
-		'''
-		tf.summary.image('conv_1_1', self.conv_1_2)
-		tf.summary.image('conv_2_2', self.conv_2_2)
-		tf.summary.image('conv_3_3', self.conv_3_3)
-		tf.summary.image('conv_4_3', self.conv_4_3)
-		tf.summary.image('conv_5_3', self.conv_5_3)
-		'''
-
 		tf.summary.scalar('cross_entropy', self.cross_entropy)
 		tf.summary.scalar('learning rate', self.lr)
-		#tf.summary.scalar('accuracy', self.accuracy)
 
 		sess = tf.Session()
 
@@ -522,13 +512,8 @@ class Common_image(Common):
 
 		saver = tf.train.Saver()
 
-		f_log = open('trained_model/%s/log.csv' % self.model_name, 'w')
-
 		merged = tf.summary.merge_all()
 		train_writer = tf.summary.FileWriter('/home/lsmjn/Drone-CNN/tb/%s' % self.model_name, sess.graph)
-
-		ngii_dir_training = data.get_ngii_dir('training')
-		ngii_dir_test = data.get_ngii_dir('test')
 
 		conn, cur = data.get_db_connection()
 
@@ -538,13 +523,23 @@ class Common_image(Common):
 
 		print('\nCurrent Model: %s' % self.model_name)
 
-
-
+		#For each epochs
 		for i in range(0, epoch):
-			patch_queue = data.get_patch_all(conn, cur, 'training')
-			num_patch = len(patch_queue)
+			_, x_patch_filenames, y_patch_filenames = data.get_patch_all(conn, cur, 'training')
+			x_patch_queue = tf.train.string_input_producer(x_patch_filenames)
+			y_patch_queue = tf.train.string_input_producer(y_patch_filenames)
+
+			reader = tf.WholeFileReader()
+			_, x_content = reader.read(x_patch_queue)
+			_, y_content = reader.read(y_patch_queue)
+
+			x_patch_image = tf.image.decode_bmp(x_content, channels=3)
+			y_patch_image = tf.image.decode_bmp(y_content, channels=3)
+
+			#For each steps
 			for j in range(0, steps):
-				x_batch, y_batch = data.make_batch_from_patch_queue(self.batch_size, patch_queue)
+				x_batch = tf.train.batch([x_patch_image], batch_size=self.batch_size)
+				y_batch = tf.train.batch([y_patch_image], batch_size=self.batch_size)
 
 				print('Current Step: %d, Current Epoch: %d' % (k, i))
 

@@ -88,10 +88,14 @@ def get_patch_all(conn, cur, purpose):
 	cur.execute("select patch_dir.x_dir, patch_dir.y_dir from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where ngii_dir.purpose='%s';" % purpose)
 	patch_dir = cur.fetchall()
 	random.shuffle(patch_dir)
-	patch_queue = []
+	patch_filenames = []
+	x_patch_filenames = []
+	y_patch_filenames = []
 	for row in patch_dir:
-		patch_queue.append((row[0], row[1]))
-	return patch_queue
+		patch_filenames.append((row[0], row[1]))
+		x_patch_filenames.append(row[0])
+		y_patch_filenames.append(row[1])
+	return patch_filenames, x_patch_filenames, y_patch_filenames
 
 def get_patch_dir_building(conn, cur, purpose, batch_size):
 	cur.execute("select patch_dir.x_dir, patch_dir.y_dir, patch_dir.building, patch_dir.road, patch_dir.otherwise from patch_dir inner join ngii_dir on patch_dir.name = ngii_dir.name where ngii_dir.purpose='%s' and patch_dir.building=1 order by RANDOM() LIMIT %d;" % (purpose, int(batch_size/2)))

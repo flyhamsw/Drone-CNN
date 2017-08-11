@@ -86,10 +86,10 @@ for row in ngii_dir:
 						y_patch_180 = cv2.warpAffine(y_patch_90, M, (y_patch_0.shape[1], y_patch_0.shape[0]))
 						y_patch_270 = cv2.warpAffine(y_patch_180, M, (y_patch_0.shape[1], y_patch_0.shape[0]))
 
-						yname0 = '%s/NGII_Data_%s_%s_y_0_%s.bmp' % (ypath, i, j, one_hot_enc)
-						yname90 = '%s/NGII_Data_%s_%s_y_90_%s.bmp' % (ypath, i, j, one_hot_enc)
-						yname180 = '%s/NGII_Data_%s_%s_y_180_%s.bmp' % (ypath, i, j, one_hot_enc)
-						yname270 = '%s/NGII_Data_%s_%s_y_270_%s.bmp' % (ypath, i, j, one_hot_enc)
+						yname0 = '%s/NGII_Data_%s_%s_y_0_%s.png' % (ypath, i, j, one_hot_enc)
+						yname90 = '%s/NGII_Data_%s_%s_y_90_%s.png' % (ypath, i, j, one_hot_enc)
+						yname180 = '%s/NGII_Data_%s_%s_y_180_%s.png' % (ypath, i, j, one_hot_enc)
+						yname270 = '%s/NGII_Data_%s_%s_y_270_%s.png' % (ypath, i, j, one_hot_enc)
 
 						if resize_option == True:
 							y_patch_0 = cv2.resize(y_patch_0, (40, 40), interpolation=cv2.INTER_AREA) * 225
@@ -107,7 +107,7 @@ for row in ngii_dir:
 						y_data.append(yname180)
 						y_data.append(yname270)
 
-						print('NGII_Data_%s_%s_y_0.bmp done, and it is %s' % (i, j, one_hot_enc))
+						print('NGII_Data_%s_%s_y_0.png done, and it is %s' % (i, j, one_hot_enc))
 
 						x_patch = np.array(x[i:i+patch_size, j:j+patch_size])
 
@@ -118,13 +118,13 @@ for row in ngii_dir:
 						x_patch_180 = cv2.warpAffine(x_patch_90, M, (x_patch_0.shape[1], x_patch_0.shape[0]))
 						x_patch_270 = cv2.warpAffine(x_patch_180, M, (x_patch_0.shape[1], x_patch_0.shape[0]))
 
-						xname0 = '%s/NGII_Data_%s_%s_x_0_%s.bmp' % (xpath, i, j, one_hot_enc)
+						xname0 = '%s/NGII_Data_%s_%s_x_0_%s.png' % (xpath, i, j, one_hot_enc)
 						cv2.imwrite(xname0, x_patch_0)
-						xname90 = '%s/NGII_Data_%s_%s_x_90_%s.bmp' % (xpath, i, j, one_hot_enc)
+						xname90 = '%s/NGII_Data_%s_%s_x_90_%s.png' % (xpath, i, j, one_hot_enc)
 						cv2.imwrite(xname90, x_patch_90)
-						xname180 = '%s/NGII_Data_%s_%s_x_180_%s.bmp' % (xpath, i, j, one_hot_enc)
+						xname180 = '%s/NGII_Data_%s_%s_x_180_%s.png' % (xpath, i, j, one_hot_enc)
 						cv2.imwrite(xname180, x_patch_180)
-						xname270 = '%s/NGII_Data_%s_%s_x_270_%s.bmp' % (xpath, i, j, one_hot_enc)
+						xname270 = '%s/NGII_Data_%s_%s_x_270_%s.png' % (xpath, i, j, one_hot_enc)
 						cv2.imwrite(xname270, x_patch_270)
 
 						x_data.append(xname0)
@@ -134,7 +134,7 @@ for row in ngii_dir:
 
 						for p in range(0, 4):
 							name.append(curr_dataset_name)
-						print('NGII_Data_%s_%s_x_0.bmp done.' % (i, j))
+						print('NGII_Data_%s_%s_x_0.png done.' % (i, j))
 			except Exception as e:
 				print(e)
 
