@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 import data
 import cv2
 import numpy as np
+from tqdm import tqdm
 
 class Common:
 	def __init__(self, model_name, input_patch_size, lr_value, lr_decay_rate, lr_decay_freq, m_value, batch_size):
@@ -501,7 +502,7 @@ class Common_image(Common):
 		tf.summary.image('input x_image', self.x_image, 4)
 		tf.summary.image('y_prediction', self.y_conv, 4)
 		tf.summary.image('y_GT', self.y_, 4)
-		tf.summary.image('y_pred_softmax', self.y_soft)
+		tf.summary.image('y_pred_softmax', self.y_soft, 4)
 		tf.summary.scalar('cross_entropy', self.cross_entropy)
 		tf.summary.scalar('learning rate', self.lr)
 
@@ -519,39 +520,21 @@ class Common_image(Common):
 
 		steps = data.get_steps(self.batch_size)
 
-		k = 0
+		filename_queue = tf.train.string_input_producer(['Drone-CNN.tfrecords'], num_epochs=epoch)
 
-		print('\nCurrent Model: %s' % self.model_name)
+		image, annotation = read_and_decode(filename_queue, self.batch_size)
 
-		#For each epochs
-		for i in range(0, epoch):
-			_, x_patch_filenames, y_patch_filenames = data.get_patch_all(conn, cur, 'training')
-			x_patch_queue = tf.train.string_input_producer(x_patch_filenames)
-			y_patch_queue = tf.train.string_input_producer(y_patch_filenames)
+		coord = tf.train.Coordinator()
+		threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-			reader = tf.WholeFileReader()
-			_, x_content = reader.read(x_patch_queue)
-			_, y_content = reader.read(y_patch_queue)
+		print('Training...')
+		for k in tqdm(range(0, steps*epoch)):
+			x_batch, y_batch = sess.run([image, annotation])
 
-			x_patch_image = tf.image.decode_bmp(x_content, channels=3)
-			y_patch_image = tf.image.decode_bmp(y_content, channels=3)
+			summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: sess.run(x_batch), self.y_: sess.run(y_batch), self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
 
-			#For each steps
-			for j in range(0, steps):
-				x_batch = tf.train.batch([x_patch_image], batch_size=self.batch_size)
-				y_batch = tf.train.batch([y_patch_image], batch_size=self.batch_size)
-
-				print('Current Step: %d, Current Epoch: %d' % (k, i))
-
-				if k%self.lr_decay_freq == 0:
-					self.lr_value = self.lr_value * self.lr_decay_rate
-					print('Learning rate:')
-					print(self.lr_value)
-
-				summary, _ = sess.run([merged, self.train_step], feed_dict={self.x_image: x_batch, self.y_: y_batch, self.lr:self.lr_value, self.m:self.m_value, self.keep_prob: 0.5})
-
-				k = k + 1
-				train_writer.add_summary(summary, k)
+			k = k + 1
+			train_writer.add_summary(summary, k)
 
 		cur.close()
 		conn.close()
